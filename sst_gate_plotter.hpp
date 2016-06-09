@@ -1,22 +1,7 @@
-// Copyright 2015 Cameron Rulten
-
-//    Licensed under the Apache License, Version 2.0 (the "License");
-//    you may not use this file except in compliance with the License.
-//    You may obtain a copy of the License at
-
-//        http://www.apache.org/licenses/LICENSE-2.0
-
-//    Unless required by applicable law or agreed to in writing, software
-//    distributed under the License is distributed on an "AS IS" BASIS,
-//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//    See the License for the specific language governing permissions and
-//    limitations under the License.
-
 /*
 The following code includes a set of functions for producing pretty plots
 Written by Cameron Rulten 2013 Observatoire de Paris, France.
  */
-
 #ifndef SST_GATE_PLOTTER_H
 #define SST_GATE_PLOTTER_H
 
@@ -77,6 +62,7 @@ public:
   void create_pixel_box(TBox* pixelBox[], TH2D* spotH_cm[], int tN, double pixel_half_length);
   void plot_spot(TH2D* spotH_cm[], TBox* pixelBox[], TEllipse* psfEllipse[], int tN, double psf_radius[], std::string method, std::string ofile_name, double xD[], double yD[], double psf_photons[],//
 		 double psf[], double effectiveArea[], double angularResSagittal[], double angularResTangential[], double fRpMax, double kDegStep, double fDegStep);
+  void plot_spot_ground(TH2D* spotGround_cm[], int tN, std::string method, std::string ofile_name, double kDegStep, double fDegStep);
   void plot_time_xFP(TProfile* hTime_xFP[], int tN);
   void plot_time_yFP(TProfile* hTime_yFP[], int tN);
   void plot_time_xyS(TProfile2D* hTime_xyS[], int tN, std::string method, std::string ofile_name);
@@ -164,6 +150,8 @@ void create_pixel_box(TBox* pixelBox[], TH2D* spotH_cm[], int tN, double pixel_h
 void plot_spot(TH2D* spotH_cm[], TBox* pixelBox[], TEllipse* psfEllipse[], int tN, double psf_radius[], std::string method, std::string ofile_name, double xD[], double yD[], double psf_photons[], double psf[], double effectiveArea[], double angularResSagittal[], double angularResTangential[], double fRpMax, double kDegStep, double fDegStep)
 {
 
+  //gStyle->SetPalette(53);
+  
   std::string output_name;
   // ofstream photonsFile;
   // std::string output_name = method + "/data_" + ofile_name + ".txt";
@@ -189,7 +177,8 @@ void plot_spot(TH2D* spotH_cm[], TBox* pixelBox[], TEllipse* psfEllipse[], int t
 
   for(int i=0;i!=tN;++i)
     {
-      pads[i]->SetRightMargin(0.15);
+      pads[i]->SetMargin(0.15,0.15,0.15,0.15);
+      //pads[i]->SetRightMargin(0.15);
       pads[i]->Draw();
     }
 
@@ -206,12 +195,15 @@ void plot_spot(TH2D* spotH_cm[], TBox* pixelBox[], TEllipse* psfEllipse[], int t
       pads[i]->cd();
       pads[i]->SetLogz();
       spotH_cm[i]->GetZaxis()->SetRangeUser(1,spotH_cm[i]->GetMaximum());
-      spotH_cm[i]->GetXaxis()->SetLabelSize(0.035);
-      spotH_cm[i]->GetYaxis()->SetLabelSize(0.035);
-      spotH_cm[i]->GetYaxis()->SetTitleSize(0.03);
-      spotH_cm[i]->GetXaxis()->SetTitleSize(0.03);
-      spotH_cm[i]->GetXaxis()->SetTitleOffset(1.3);
-      spotH_cm[i]->GetYaxis()->SetTitleOffset(1.6);
+      spotH_cm[i]->GetXaxis()->SetLabelSize(0.058);
+      spotH_cm[i]->GetYaxis()->SetLabelSize(0.058);
+      spotH_cm[i]->GetZaxis()->SetLabelSize(0.058);
+      spotH_cm[i]->GetXaxis()->SetLabelOffset(0.01);
+      spotH_cm[i]->GetYaxis()->SetLabelOffset(0.01);
+      spotH_cm[i]->GetXaxis()->SetTitleSize(0.058);
+      spotH_cm[i]->GetYaxis()->SetTitleSize(0.058);
+      spotH_cm[i]->GetXaxis()->SetTitleOffset(1.2);
+      spotH_cm[i]->GetYaxis()->SetTitleOffset(1.2);
       spotH_cm[i]->SetLineColor(1);
       spotH_cm[i]->SetMarkerStyle(6);
       spotH_cm[i]->SetMarkerColor(4);
@@ -245,14 +237,15 @@ void plot_spot(TH2D* spotH_cm[], TBox* pixelBox[], TEllipse* psfEllipse[], int t
       // photonsFile << angle << "\t" << spotH_cm[i]->GetEntries() << "\t" << psf_photons[i] << "\t" << psf[i] << "\t" << effectiveArea[i] << "\t" << angularResSagittal[i] << "\t" << angularResTangential[i] << "\t" << fRpMax << "\t" << method << std::endl;
 
       //draw pixel box
-      pixelBox[i]->SetLineColor(1);
-      pixelBox[i]->SetLineWidth(2);
+      pixelBox[i]->SetLineColor(4);
+      pixelBox[i]->SetLineWidth(1);
+      pixelBox[i]->SetLineStyle(1);
       pixelBox[i]->SetFillStyle(0);
       pixelBox[i]->Draw("sames");
       
       //draw PSF circle
-      psfEllipse[i]->SetLineColor(2);
-      psfEllipse[i]->SetLineWidth(2);
+      psfEllipse[i]->SetLineColor(7);
+      psfEllipse[i]->SetLineWidth(1);
       psfEllipse[i]->SetFillStyle(0);
       psfEllipse[i]->Draw("sames");
 
@@ -287,6 +280,85 @@ void plot_spot(TH2D* spotH_cm[], TBox* pixelBox[], TEllipse* psfEllipse[], int t
   plotSpot_cm->SaveAs(output_name.c_str());
 
 }
+
+void plot_spot_ground(TH2D* spotGround_cm[], int tN, std::string method, std::string ofile_name, double kDegStep, double fDegStep)
+{
+
+  //gStyle->SetPalette(53);
+  
+  std::string output_name;
+  
+  //TCanvas* plotSpot_cm = new TCanvas("plotSpot_cm", "plotSpot_cm", 1917, 796);
+  TCanvas* plotSpot_ground = new TCanvas("plotSpot_ground", "plotSpot_ground", 1440, 500);
+  gStyle->SetOptStat(0);
+  gStyle->SetTitleFontSize(0.06);
+  //TCanvas* plotSpot_ground = new TCanvas("plotSpot_ground", "plotSpot_ground", 3508, 2480); //optimised for A4 landscape 300dpi
+  plotSpot_ground->Divide(5,2);
+  TPad *pads[tN];
+  std::stringstream get_padNum;
+  std::string padNum;
+  TPaveStats *mystats[tN];
+  TPaveStats *newStats;
+
+  for(int i=0;i!=tN;++i)
+    {
+      pads[i] = (TPad*)plotSpot_ground->GetPad(i+1);
+    }
+
+  for(int i=0;i!=tN;++i)
+    {
+      pads[i]->SetMargin(0.15,0.15,0.15,0.15);
+      //pads[i]->SetRightMargin(0.15);
+      pads[i]->Draw();
+    }
+
+  plotSpot_ground->Update();
+
+  double angle=0.0; //reset angle
+  
+
+  //photonsFile << "# FOVangle(deg): \t photons: \t photons: \t psf(cm): \t effArea(m2): \t angResS(arcmin): \t angResT(arcmin): \t M1radius(cm): \t method:" << std::endl;
+  for(int i=0;i!=tN;++i)
+    {
+      //std::cout << "spot " << i << " title: " << spotGround_cm[i]->GetTitle() << std::endl;
+      //change pad
+      pads[i]->cd();
+      pads[i]->SetLogz();
+      spotGround_cm[i]->GetZaxis()->SetRangeUser(1,spotGround_cm[i]->GetMaximum());
+      spotGround_cm[i]->GetXaxis()->SetLabelSize(0.058);
+      spotGround_cm[i]->GetYaxis()->SetLabelSize(0.058);
+      spotGround_cm[i]->GetZaxis()->SetLabelSize(0.058);
+      spotGround_cm[i]->GetXaxis()->SetLabelOffset(0.01);
+      spotGround_cm[i]->GetYaxis()->SetLabelOffset(0.01);
+      spotGround_cm[i]->GetXaxis()->SetTitleSize(0.058);
+      spotGround_cm[i]->GetYaxis()->SetTitleSize(0.058);
+      spotGround_cm[i]->GetXaxis()->SetTitleOffset(1.2);
+      spotGround_cm[i]->GetYaxis()->SetTitleOffset(1.2);
+      spotGround_cm[i]->SetLineColor(1);
+      spotGround_cm[i]->SetMarkerStyle(6);
+      spotGround_cm[i]->SetMarkerColor(4);
+      spotGround_cm[i]->Draw("colz");
+      //To draw zero value bins as lowest colour uncomment this line.
+      //spotH[i]->SetMinimum(-1); 
+
+      //step through FOV angles
+      if(i==9) angle+=fDegStep;
+      else angle+=kDegStep;
+    }
+
+  plotSpot_ground->Modified();
+  plotSpot_ground->Update();
+
+  output_name = method + "/ground_" + ofile_name + ".eps";
+  plotSpot_ground->SaveAs(output_name.c_str());
+  output_name = method + "/ground_" + ofile_name + ".png";
+  plotSpot_ground->SaveAs(output_name.c_str());
+
+}
+
+
+
+
 
 // hTime_xFP[i]->Fill(px3,pt3);                        // photon position in x direction and mean time taken from secondary mirror
 // hTime_yFP[i]->Fill(py3,pt3);                        // photon position in y direction and mean time taken from secondary mirror
@@ -462,24 +534,29 @@ void plot_mean_time_delay(int tN, double fov_angles[], double delay_times_mean[]
 {
   TGraphErrors* gr_delay = new TGraphErrors(tN, fov_angles, delay_times_mean, 0, delay_times_spread);
   TCanvas* c_gr_delay = new TCanvas("c_gr_delay","c_gr_delay",800,600);
-  gr_delay->SetTitle("Mean photon delay between first and last photon arrivals; fov (degrees); delay (ns)");
-  gr_delay->GetXaxis()->SetLabelSize(0.03);
-  gr_delay->GetYaxis()->SetLabelSize(0.03);
-  gr_delay->GetXaxis()->SetLabelOffset(0.008);
-  gr_delay->GetYaxis()->SetLabelOffset(0.008);
-  gr_delay->GetXaxis()->SetTitleSize(0.03);
-  gr_delay->GetYaxis()->SetTitleSize(0.03);
+  c_gr_delay->SetMargin(0.15, 0.85, 0.15, 0.85);
+  gr_delay->SetTitle("; field angle (degrees); time (ns)");//Mean photon delay between first and last photon arrivals
+  gr_delay->GetXaxis()->SetLabelSize(0.04);
+  gr_delay->GetYaxis()->SetLabelSize(0.04);
+  //gr_delay->GetXaxis()->SetLabelOffset(0.008);
+  //gr_delay->GetYaxis()->SetLabelOffset(0.008);
+  gr_delay->GetXaxis()->SetTitleSize(0.04);
+  gr_delay->GetYaxis()->SetTitleSize(0.04);
   gr_delay->GetXaxis()->SetTitleOffset(1.1);
-  gr_delay->GetYaxis()->SetTitleOffset(1.2);
+  gr_delay->GetYaxis()->SetTitleOffset(1.1);
   gr_delay->SetMarkerColor(4);
   gr_delay->SetMarkerStyle(20);
+  gr_delay->GetXaxis()->SetLimits(0.0,5.0);
+  gr_delay->GetYaxis()->SetRangeUser(0.0,1.0);
   gr_delay->Draw("ALPE");
   c_gr_delay->Update();
 
-  std::string output_name = method + "/time_delay_fov_" + ofile_name + ".eps";
+  std::string output_name = method + "/time_delay_fov_" + ofile_name + "_STDEV.eps";
   
   c_gr_delay->SaveAs(output_name.c_str());
-
+  output_name = method + "/time_delay_fov_" + ofile_name + "_STDEV.pdf";
+  c_gr_delay->SaveAs(output_name.c_str());
+  
 }
 
 void plot_time_xyS(TProfile2D* hTime_xyS[], int tN, std::string method, std::string ofile_name)

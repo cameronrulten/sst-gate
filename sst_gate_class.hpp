@@ -1,23 +1,3 @@
-// Copyright 2015 Cameron Rulten
-
-//    Licensed under the Apache License, Version 2.0 (the "License");
-//    you may not use this file except in compliance with the License.
-//    You may obtain a copy of the License at
-
-//        http://www.apache.org/licenses/LICENSE-2.0
-
-//    Unless required by applicable law or agreed to in writing, software
-//    distributed under the License is distributed on an "AS IS" BASIS,
-//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//    See the License for the specific language governing permissions and
-//    limitations under the License.
-
-// Class that defines the computational model of the SST-GATE mechanical structure e.g.
-// Telescope primary and secondary mirrors
-// Ideal focal plane and CHEC camera MAPMT focal plane
-// Telescope masts and trusses
-// Written by Cameron Rulten 2013/14 Observatoire de Paris, France.
-
 #ifndef SST_GATE_H
 #define SST_GATE_H
 
@@ -108,6 +88,7 @@ public:
   
   void StartBuildingTelescope();
   void AddIdealFocalPlane();
+  void AddIdealGroundFocalPlane();
   void AddCameraBody();
   void AddCameraLid(double deltaPos, double depth);
   void AddTelescopeFrame();
@@ -196,7 +177,7 @@ void SST_GATE::AddPrimaryMirrorAsFP(const char* name, SegmentedMirror* mirror)
   //AMirror* mir=mirror->BuildMirror(name, fPrimaryV, kTRUE);
   TGeoCombiTrans* combi=mirror->BuildMirrorCombiTrans(fPrimaryV, kTRUE);
   
-  ABorderSurfaceCondition * condition = new ABorderSurfaceCondition(fManager->GetTopVolume(), primaryMirrorAsFocalP);
+  ABorderSurfaceCondition * condition = new ABorderSurfaceCondition((AOpticalComponent*)fManager->GetTopVolume(), primaryMirrorAsFocalP);
   condition->SetGaussianRoughness(mirror->GetRoughness()*TMath::DegToRad());
   //  fManager->GetTopVolume()->AddNode(mir, 1, combi);
   fManager->GetTopVolume()->AddNode(primaryMirrorAsFocalP, 1);
@@ -208,7 +189,7 @@ void SST_GATE::AddPrimaryMirror(const char* name, SegmentedMirror* mirror)
   AMirror* mir=mirror->BuildMirror(name, fPrimaryV, kTRUE);
   TGeoCombiTrans* combi=mirror->BuildMirrorCombiTrans(fPrimaryV, kTRUE);
   
-  ABorderSurfaceCondition * condition = new ABorderSurfaceCondition(fManager->GetTopVolume(), mir);
+  ABorderSurfaceCondition * condition = new ABorderSurfaceCondition((AOpticalComponent*)fManager->GetTopVolume(), mir);
   condition->SetGaussianRoughness(mirror->GetRoughness()*TMath::DegToRad());
   fManager->GetTopVolume()->AddNode(mir, 1, combi);
 }
@@ -258,7 +239,7 @@ void SST_GATE::AddSecondaryMirrorAsFP(const char* name, SegmentedMirror* mirror)
   //AMirror* mir=mirror->BuildMirror(name, fSecondaryV, kFALSE);
   TGeoCombiTrans* combi = mirror->BuildMirrorCombiTrans(fSecondaryV, kFALSE);
   
-  ABorderSurfaceCondition * condition=new ABorderSurfaceCondition(fManager->GetTopVolume(), secondaryMirrorAsFocalP);
+  ABorderSurfaceCondition * condition=new ABorderSurfaceCondition((AOpticalComponent*)fManager->GetTopVolume(), secondaryMirrorAsFocalP);
   condition->SetGaussianRoughness(mirror->GetRoughness()*TMath::DegToRad());
   
   //fManager->GetTopVolume()->AddNode(mir, 1, combi);
@@ -271,7 +252,7 @@ void SST_GATE::AddSecondaryMirror(const char* name, SegmentedMirror* mirror)
   AMirror* mir=mirror->BuildMirror(name, fSecondaryV, kFALSE);
   TGeoCombiTrans* combi = mirror->BuildMirrorCombiTrans(fSecondaryV, kFALSE);
   
-  ABorderSurfaceCondition * condition=new ABorderSurfaceCondition(fManager->GetTopVolume(), mir);
+  ABorderSurfaceCondition * condition=new ABorderSurfaceCondition((AOpticalComponent*)fManager->GetTopVolume(), mir);
   condition->SetGaussianRoughness(mirror->GetRoughness()*TMath::DegToRad());
   
   fManager->GetTopVolume()->AddNode(mir, 1, combi);
@@ -477,6 +458,16 @@ void SST_GATE::AddIdealFocalPlane()
 
   std::cout << "kZs: " << kZs << " kZf: " << kZf << std::endl;
 
+}
+
+void SST_GATE::AddIdealGroundFocalPlane()
+{
+  TGeoBBox *idealGroundV = new TGeoBBox("idealGroundV",250*cm,250*cm,0.1*cm);
+  
+  AFocalSurface* idealGroundFocalArea = new AFocalSurface("idealGroundFocalArea", idealGroundV);
+  AObscuration* idealGroundFocalAreaObs = new AObscuration("idealGroundFocalAreaObs", idealGroundV);
+  fManager->GetTopVolume()->AddNode(idealGroundFocalArea, 1,new TGeoTranslation(0, 0, 0));
+  fManager->GetTopVolume()->AddNode(idealGroundFocalAreaObs, 1, new TGeoTranslation(0, 0, -5*um));
 }
 
 //---------  ADD CAMERA BODY ---------//
@@ -887,166 +878,358 @@ void SST_GATE::AddTelescopeFrame_version2()
   
   std::cout << " kZs: " << kZs << " kZf: " << kZf << std::endl;
 
-  // Camera support frame
-  TVector3 v1(0*m, 290.*mm , kZf*cm - 549.35*mm);    // Point at back of camera edge
-  TVector3 v2(0*m, 1068.88*mm, kZf*cm + 300.65*mm);  // Point on secondary edge
-  
-  TVector3 v3 = v2 - v1;
-  TVector3 v4 = v3*0.5;                              // Midpoint of vector v2v1
+  //-------------------------------
+  // Define camera support trusses
+  //-------------------------------
 
-  TVector3 vFoot1(0*m, 0.*m,  kZf*cm - 549.35*mm);   // Support foot vector
-  TVector3 vFoot2(0*m, 290.*mm,  kZf*cm - 549.35*mm);// Support foot vector
-  TVector3 vFoot3 = vFoot2 - vFoot1; vFoot3 *= 0.5;
-  
-  double theta = v4.Theta()*TMath::RadToDeg();
-  double phi   = v4.Phi()*TMath::RadToDeg();
+  //camera back side
+  //TVector3 v1_CS1(0*m*TMath::Cos(90.*TMath::DegToRad()), 380.*mm*TMath::Sin(90.*TMath::DegToRad()) , kZf*cm - 549.35*mm);    // Point at back of camera edge
+  //TVector3 v2_CS1(0*m*TMath::Cos(90.*TMath::DegToRad()), 1068.88*mm*TMath::Sin(90. * TMath::DegToRad()), kZf*cm + 300.65*mm);  // Point on secondary edge
+  TVector3 v1_CS1(0*m*TMath::Cos(90.*TMath::DegToRad()), 575.66*mm*TMath::Sin(90.*TMath::DegToRad()) , kZf*cm - 643.85*mm);    // Point at back of camera edge
+  TVector3 v2_CS1(0*m*TMath::Cos(90.*TMath::DegToRad()), 1469.86*mm*TMath::Sin(90. * TMath::DegToRad()), kZf*cm + 421.81*mm);  // Point on secondary edge
+  TVector3 v3_CS1 = v2_CS1 - v1_CS1;
+  TVector3 v4_CS1 = v3_CS1 * 0.5;                              // Midpoint of vector v2v1
+  double theta_CS1 = v4_CS1.Theta()*TMath::RadToDeg();
+  double phi_CS1   = v4_CS1.Phi()*TMath::RadToDeg();
 
-  // Primary support frame
+  //camera lid side
+  //TVector3 v1_CS2(0*m*TMath::Cos(270.*TMath::DegToRad()), 380.*mm*TMath::Sin(270. * TMath::DegToRad()) , kZf*cm - 549.35*mm);    // Point at back of camera edge
+  //TVector3 v2_CS2(0*m*TMath::Cos(270.*TMath::DegToRad()), 1068.88*mm*TMath::Sin(270. * TMath::DegToRad()), kZf*cm + 300.65*mm);  // Point on secondary edge
+  TVector3 v1_CS2(0*m*TMath::Cos(270.*TMath::DegToRad()), 575.66*mm*TMath::Sin(270. * TMath::DegToRad()) , kZf*cm - 643.85*mm);    // Point at back of camera edge
+  TVector3 v2_CS2(0*m*TMath::Cos(270.*TMath::DegToRad()), 1208.47*mm*TMath::Sin(270. * TMath::DegToRad()), kZf*cm + 110.3*mm);  // Point on secondary edge
+  TVector3 v3_CS2 = v2_CS2 - v1_CS2;
+  TVector3 v4_CS2 = v3_CS2 * 0.5;                              // Midpoint of vector v2v1
+  double theta_CS2 = v4_CS2.Theta()*TMath::RadToDeg();
+  double phi_CS2   = v4_CS2.Phi()*TMath::RadToDeg();
+
+  //TGeoTube* cameraSupportFrame = new TGeoTube("cameraSupportFrame", 0*mm, 50.*mm, v4.Mag());
+  TGeoBBox * cameraSupportFrame = new TGeoBBox("cameraSupportFrame", 25.0*mm, 50.0*mm, v4_CS1.Mag());//old dims: 25mm x 50mm
+  AObscuration* cameraSupportFrameObs = new AObscuration("cameraSupportFrameObs", cameraSupportFrame);
+  cameraSupportFrameObs->RegisterYourself();
+
+  TGeoBBox * cameraSupportFrame2 = new TGeoBBox("cameraSupportFrame2", 25.0*mm, 50.0*mm, v4_CS2.Mag());//old dims: 25mm x 50mm 42x75
+  AObscuration* cameraSupportFrameObs2 = new AObscuration("cameraSupportFrameObs2", cameraSupportFrame2);
+  cameraSupportFrameObs2->RegisterYourself();  
+
+  std::cout << "camera trusses = theta: " << theta_CS1 << "; " << theta_CS2 << "; phi: " << phi_CS1 << "; " << phi_CS2 << "; mag: " <<  v4_CS1.Mag() << "; " << v4_CS2.Mag() << std::endl;
+  std::cout << "camera trusses = v1_CS1 X: " << v1_CS1.X() << "; Y: " << v1_CS1.Y() << "; Z: " << v1_CS1.Z() << "; v4_CS1 X: " << v4_CS1.X() << "; Y: " << v4_CS1.Y() << "; Z: " << v4_CS1.Z() << "; v4_CS1 length: " <<  2*v4_CS1.Mag() << std::endl;
+  std::cout << "camera trusses = v1_CS2 X: " << v1_CS2.X() << "; Y: " << v1_CS2.Y() << "; Z: " << v1_CS2.Z() << "; v4_CS2 X: " << v4_CS2.X() << "; Y: " << v4_CS2.Y() << "; Z: " << v4_CS2.Z() << "; v4_CS2 length: " <<  2*v4_CS2.Mag() << std::endl;
+  
+  //-------------------------------
+  // Define camera support footings
+  //-------------------------------
+  
+  //TVector3 v1_Foot1(0*m*TMath::Cos(90.*TMath::DegToRad()), 0.*m*TMath::Sin(90.*TMath::DegToRad()),  kZf*cm - 549.35*mm);   // Support foot vector
+  //TVector3 v2_Foot1(0*m*TMath::Cos(90.*TMath::DegToRad()), 380.*mm*TMath::Sin(90.*TMath::DegToRad()),  kZf*cm - 549.35*mm);// Support foot vector
+  TVector3 v1_Foot1(0*m*TMath::Cos(90.*TMath::DegToRad()), 280.*mm*TMath::Sin(90.*TMath::DegToRad()),  kZf*cm - (611.22 + 25.0)*mm);   // Support foot vector
+  TVector3 v2_Foot1(0*m*TMath::Cos(90.*TMath::DegToRad()), 596.63*mm*TMath::Sin(90.*TMath::DegToRad()),  kZf*cm - (611.22 + 25.0)*mm);// Support foot vector
+  TVector3 v3_Foot1 = v2_Foot1 - v1_Foot1;
+  TVector3 v4_Foot1 = v3_Foot1 * 0.5;
+  double theta_Foot1 = v4_Foot1.Theta()*TMath::RadToDeg();
+  double phi_Foot1   = v4_Foot1.Phi()*TMath::RadToDeg();
+    
+  //TVector3 v1_Foot2(0*m*TMath::Cos(270.*TMath::DegToRad()), 0.*m*TMath::Sin(270.*TMath::DegToRad()),  kZf*cm - 549.35*mm);   // Support foot vector
+  //TVector3 v2_Foot2(0*m*TMath::Cos(270.*TMath::DegToRad()), 380.*mm*TMath::Sin(270.*TMath::DegToRad()),  kZf*cm - 549.35*mm);// Support foot vector
+  TVector3 v1_Foot2(0*m*TMath::Cos(270.*TMath::DegToRad()), 280.*mm*TMath::Sin(270.*TMath::DegToRad()),  kZf*cm - (611.22 + 25.0)*mm);   // Support foot vector
+  TVector3 v2_Foot2(0*m*TMath::Cos(270.*TMath::DegToRad()), 596.63*mm*TMath::Sin(270.*TMath::DegToRad()),  kZf*cm - (611.22 + 25.0)*mm);// Support foot vector
+  TVector3 v3_Foot2 = v2_Foot2 - v1_Foot2;
+  TVector3 v4_Foot2 = v3_Foot2 * 0.5;
+  double theta_Foot2 = v4_Foot2.Theta()*TMath::RadToDeg();
+  double phi_Foot2   = v4_Foot2.Phi()*TMath::RadToDeg();
+
+  TGeoBBox * cameraSupportFrameFoot = new TGeoBBox("cameraSupportFrame", 25.0*mm, 50.0*mm, v4_Foot1.Mag());//old dims: 25mm x 50mm
+  AObscuration* cameraSupportFrameObs3 = new AObscuration("cameraSupportFrameObs3", cameraSupportFrameFoot);
+  cameraSupportFrameObs3->RegisterYourself();
+
+  std::cout << "camera footings = theta: " << theta_Foot1 << "; " << theta_Foot2 << "; phi: " << phi_Foot1 << "; " << phi_Foot2 << "; mag: " <<  v4_Foot1.Mag() << "; " << v4_Foot2.Mag() << std::endl;
+
+  //-------------------------------
+  // Define camera support bars
+  //-------------------------------
+
+  TVector3 v1_CS3(225.*mm, 0.*mm, kZf*cm - 500.2*mm + (0.5*35*mm)); //kZf*cm - 549.35*mm);    // Point on fixing plate
+  TVector3 v2_CS3(1068.88*mm, 0.*mm, kZf*cm + 300.65*mm);  // Point on secondary edge
+  TVector3 v3_CS3 = v2_CS3 - v1_CS3;
+  TVector3 v4_CS3 = v3_CS3 * 0.5;                              // Midpoint of vector v2v1
+  double theta_CS3 = v4_CS3.Theta()*TMath::RadToDeg();
+  double phi_CS3   = v4_CS3.Phi()*TMath::RadToDeg();
+
+  TVector3 v1_CS4(-225.*mm, 0.*mm, kZf*cm - 500.2*mm + (0.5*35*mm)); // kZf*cm - 549.35*mm);    // Point on fixing plate
+  TVector3 v2_CS4(-1068.88*mm, 0.*mm, kZf*cm + 300.65*mm);  // Point on secondary edge
+  TVector3 v3_CS4 = v2_CS4 - v1_CS4;
+  TVector3 v4_CS4 = v3_CS4 * 0.5;                              // Midpoint of vector v2v1
+  double theta_CS4 = v4_CS4.Theta()*TMath::RadToDeg();
+  double phi_CS4   = v4_CS4.Phi()*TMath::RadToDeg();
+  
+  TGeoTube* cameraSupportBar_1 = new TGeoTube("cameraSupportBar_1", 0., 6.*mm, v4_CS3.Mag());
+  AObscuration* cameraSupportBarObs_1 = new AObscuration("cameraSupportBarObs_1", cameraSupportBar_1);
+  cameraSupportBarObs_1->RegisterYourself();
+
+  TGeoTube* cameraSupportBar_2 = new TGeoTube("cameraSupportBar_2", 0., 6.*mm, v4_CS4.Mag());
+  AObscuration* cameraSupportBarObs_2 = new AObscuration("cameraSupportBarObs_2", cameraSupportBar_2);
+  cameraSupportBarObs_2->RegisterYourself();
+
+  std::cout << "camera bars = theta: " << theta_CS3 << "; " << theta_CS4 << "; phi: " << phi_CS3 << "; " << phi_CS4 << "; mag: " <<  v4_CS3.Mag() << "; " << v4_CS4.Mag() << std::endl;
+  
+  //-------------------------------------
+  // Define primary mirror support frame
+  //-------------------------------------
+  
   // Note: the structure under the mirror is not as per the actual structure
   // We are only interested in the fixing points as the steel beneath the primary does not affect optical ray tracing.
 
-  TVector3 v1_PS(0*m, 0.*m, 0. - 166.2*mm);   // vector for Secondary Support tube number 1
-  TVector3 v2_PS(0*m, -2216.72*mm, 0. - 166.2*mm);
-  TVector3 v3_PS = v2_PS - v1_PS;
-  TVector3 v4_PS = 0.5 * v3_PS;
+  TVector3 v1_PS1(0*m, 0.*m, 0. - 166.2*mm);   // vector for Secondary Support tube number 1
+  TVector3 v2_PS1(2216.72*mm*TMath::Cos(45. * TMath::DegToRad()), 2216.72*mm*TMath::Sin(45. * TMath::DegToRad()), -166.2*mm);
+  TVector3 v3_PS1 = v2_PS1 - v1_PS1;
+  TVector3 v4_PS1 = 0.5 * v3_PS1;
+  double phi_PS1 = v4_PS1.Phi()*TMath::RadToDeg();
   
-  // Secondary support frame
+  TVector3 v1_PS2(0*m, 0.*m, 0. - 166.2*mm);   // vector for Secondary Support tube number 1
+  TVector3 v2_PS2(2216.72*mm*TMath::Cos(135. * TMath::DegToRad()), 2216.72*mm*TMath::Sin(135. * TMath::DegToRad()), -166.2*mm);
+  TVector3 v3_PS2 = v2_PS2 - v1_PS2;
+  TVector3 v4_PS2 = 0.5 * v3_PS2;
+  double phi_PS2 = v4_PS2.Phi()*TMath::RadToDeg();
+
+  TVector3 v1_PS3(0*m, 0.*m, 0. - 166.2*mm);   // vector for Secondary Support tube number 1
+  TVector3 v2_PS3(2216.72*mm*TMath::Cos(225. * TMath::DegToRad()), 2216.72*mm*TMath::Sin(225. * TMath::DegToRad()), -166.2*mm);
+  TVector3 v3_PS3 = v2_PS3 - v1_PS3;
+  TVector3 v4_PS3 = 0.5 * v3_PS3;
+  double phi_PS3 = v4_PS3.Phi()*TMath::RadToDeg();
+
+  TVector3 v1_PS4(0*m, 0.*m, 0. - 166.2*mm);   // vector for Secondary Support tube number 1
+  TVector3 v2_PS4(2216.72*mm*TMath::Cos(315. * TMath::DegToRad()), 2216.72*mm*TMath::Sin(315. * TMath::DegToRad()), -166.2*mm);
+  TVector3 v3_PS4 = v2_PS4 - v1_PS4;
+  TVector3 v4_PS4 = 0.5 * v3_PS4;
+  double phi_PS4 = v4_PS4.Phi()*TMath::RadToDeg();
+
+  TGeoBBox * primarySupportFrame = new TGeoBBox("primarySupportFrame", 25.0*mm, 125.0*mm, v4_PS1.Mag());
+  AObscuration* primarySupportFrameObs = new AObscuration("primarySupportFrameObs", primarySupportFrame);
+
+  //---------------------------------------
+  // Define secondary mirror support masts
+  //---------------------------------------
+  
   // Note: the structure above the secondary is not complete. However it is not expected to greatly effect the shadowing.
 
-  // v4_PS.Mag()*sPhi3, v4_PS.Mag()*cPhi3
-  //TMath::Cos(TMath::DegToRad()*anglePhi2);
-  //double sPhi2 = TMath::Sin(TMath::DegToRad()*anglePhi2);
-  TVector3 v1_SS1(1958.43*mm, 1177.06*mm, -166.2*mm);
-  TVector3 v2_SS1(0*m, 1068.88*mm, kZs+11.967*cm);
+  TVector3 v1_SS1(2216.72*mm*TMath::Cos(45. * TMath::DegToRad()), 2216.72*mm*TMath::Sin(45. * TMath::DegToRad()), -166.2*mm);
+  TVector3 v2_SS1(1068.88*mm*TMath::Cos(0. * TMath::DegToRad()),1068.88*mm*TMath::Sin(0. * TMath::DegToRad()), kZs+11.967*cm);
   TVector3 v3_SS1 = v2_SS1 - v1_SS1;
   TVector3 v4_SS1 = 0.5 * v3_SS1;
   
   double theta_SS1 = v4_SS1.Theta()*TMath::RadToDeg();
-  
-  TVector3 v1_SS2(0*m,-v1_SS1.Mag(),-166.2*mm);
-  
-  TVector3 v2_SS2(1068.88*mm*TMath::Cos(TMath::DegToRad()*30), -1068.88*mm*TMath::Sin(TMath::DegToRad()*30), kZs+11.967*cm);
+  double phi_SS1 = v4_SS1.Phi()*TMath::RadToDeg();
+ 
+  TVector3 v1_SS2(2216.72*mm*TMath::Cos(45. * TMath::DegToRad()), 2216.72*mm*TMath::Sin(45. * TMath::DegToRad()), -166.2*mm);
+  TVector3 v2_SS2(1068.88*mm*TMath::Cos(90. * TMath::DegToRad()), 1068.88*mm*TMath::Sin(90. * TMath::DegToRad()), kZs+11.967*cm);
   TVector3 v3_SS2 = v2_SS2 - v1_SS2;
   TVector3 v4_SS2 = 0.5 * v3_SS2;
   
   double theta_SS2 = v4_SS2.Theta()*TMath::RadToDeg();
   double phi_SS2 = v4_SS2.Phi()*TMath::RadToDeg();
   
-  TVector3 v1_SS3(1919.73*mm, 1108.36*mm, -166.2*mm);
-  TVector3 v2_SS3(1068.88*mm*TMath::Cos(TMath::DegToRad()*-30), 1068.88*mm*TMath::Sin(TMath::DegToRad()*-30), kZs+11.967*cm);
+  TVector3 v1_SS3(2216.72*mm*TMath::Cos(135. * TMath::DegToRad()), 2216.72*mm*TMath::Sin(135. * TMath::DegToRad()), -166.2*mm);
+  TVector3 v2_SS3(1068.88*mm*TMath::Cos(90. * TMath::DegToRad()), 1068.88*mm*TMath::Sin(90. * TMath::DegToRad()), kZs+11.967*cm);
   TVector3 v3_SS3 = v2_SS3 - v1_SS3;
   TVector3 v4_SS3 = 0.5 * v3_SS3;
   
   double theta_SS3 = v4_SS3.Theta()*TMath::RadToDeg();
   double phi_SS3 = v4_SS3.Phi()*TMath::RadToDeg();
   
-  TVector3 v1_SS4(-1919.73*mm, 1108.36*mm, -166.2*mm);
-  TVector3 v2_SS4(-1068.88*mm*TMath::Cos(TMath::DegToRad()*-30), 1068.88*mm*TMath::Sin(TMath::DegToRad()*-30), kZs+11.967*cm);
+  TVector3 v1_SS4(2216.72*mm*TMath::Cos(135. * TMath::DegToRad()), 2216.72*mm*TMath::Sin(135. * TMath::DegToRad()), -166.2*mm);
+  TVector3 v2_SS4(1068.88*mm*TMath::Cos(180. * TMath::DegToRad()), 1068.88*mm*TMath::Sin(180. * TMath::DegToRad()), kZs+11.967*cm);
   TVector3 v3_SS4 = v2_SS4 - v1_SS4;
   TVector3 v4_SS4 = 0.5 * v3_SS4;
   
   double theta_SS4 = v4_SS4.Theta()*TMath::RadToDeg();
   double phi_SS4 = v4_SS4.Phi()*TMath::RadToDeg();
-  
-  
-  
-  std::cout << std::endl; 
-  std::cout << " v1_SS1: x: " << v1_SS1.X() << " y: " << v1_SS1.Y() << " z: " << v1_SS1.Z() << " mag: " << v1_SS1.Mag() << " theta: " << v1_SS1.Theta()*TMath::RadToDeg() << " phi: " << v1_SS1.Phi()*TMath::RadToDeg() << std::endl;
-  std::cout << " v2_SS1: x: " << v2_SS1.X() << " y: " << v2_SS1.Y() << " z: " << v2_SS1.Z() << " mag: " << v2_SS1.Mag() << " theta: " << v2_SS1.Theta()*TMath::RadToDeg() << " phi: " << v2_SS1.Phi()*TMath::RadToDeg() << std::endl;
-  std::cout << " v3_SS1: x: " << v3_SS1.X() << " y: " << v3_SS1.Y() << " z: " << v3_SS1.Z() << " mag: " << v3_SS1.Mag() << " theta: " << v3_SS1.Theta()*TMath::RadToDeg() << " phi: " << v3_SS1.Phi()*TMath::RadToDeg() << std::endl;
-  std::cout << " v4_SS1: x: " << v4_SS1.X() << " y: " << v4_SS1.Y() << " z: " << v4_SS1.Z() << " mag: " << v4_SS1.Mag() << " theta: " << v4_SS1.Theta()*TMath::RadToDeg() << " phi: " << v4_SS1.Phi()*TMath::RadToDeg() << std::endl;
 
-  std::cout << 0. - (v1.Y()+v4.Y())*TMath::Cos(TMath::DegToRad()*30) << " " << 0. - (v1.Y()+v4.Y())*TMath::Sin(TMath::DegToRad()*30) << std::endl;
-  std::cout << std::endl;  
-  
-  //TGeoTube* cameraSupportFrame = new TGeoTube("cameraSupportFrame", 0*mm, 50.*mm, v4.Mag());
-  TGeoBBox * cameraSupportFrame = new TGeoBBox("cameraSupportFrame", 25.0*mm, 50.0*mm, v4.Mag());
-  AObscuration* cameraSupportFrameObs = new AObscuration("cameraSupportFrameObs", cameraSupportFrame);
-  cameraSupportFrameObs->RegisterYourself();  
+  TVector3 v1_SS5(2216.72*mm*TMath::Cos(225. * TMath::DegToRad()), 2216.72*mm*TMath::Sin(225. * TMath::DegToRad()), -166.2*mm);
+  TVector3 v2_SS5(1068.88*mm*TMath::Cos(180. * TMath::DegToRad()), 1068.88*mm*TMath::Sin(180. * TMath::DegToRad()), kZs+11.967*cm);
+  TVector3 v3_SS5 = v2_SS5 - v1_SS5;
+  TVector3 v4_SS5 = 0.5 * v3_SS5;
 
-  TGeoBBox * cameraSupportFrameFoot = new TGeoBBox("cameraSupportFrame", 25.0*mm, 50.0*mm, vFoot3.Mag());
-  AObscuration* cameraSupportFrameObs2 = new AObscuration("cameraSupportFrameObs2", cameraSupportFrameFoot);
-  cameraSupportFrameObs2->RegisterYourself();
+  double theta_SS5 = v4_SS5.Theta()*TMath::RadToDeg();
+  double phi_SS5 = v4_SS5.Phi()*TMath::RadToDeg();
+
+  TVector3 v1_SS6(2216.72*mm*TMath::Cos(225. * TMath::DegToRad()), 2216.72*mm*TMath::Sin(225. * TMath::DegToRad()), -166.2*mm);
+  TVector3 v2_SS6(1068.88*mm*TMath::Cos(270. * TMath::DegToRad()), 1068.88*mm*TMath::Sin(270. * TMath::DegToRad()), kZs+11.967*cm);
+  TVector3 v3_SS6 = v2_SS6 - v1_SS6;
+  TVector3 v4_SS6 = 0.5 * v3_SS6;
+
+  double theta_SS6 = v4_SS6.Theta()*TMath::RadToDeg();
+  double phi_SS6 = v4_SS6.Phi()*TMath::RadToDeg();
   
-  TGeoBBox * primarySupportFrame = new TGeoBBox("primarySupportFrame", 25.0*mm, 125.0*mm, v4_PS.Mag());
-  AObscuration* primarySupportFrameObs = new AObscuration("primarySupportFrameObs", primarySupportFrame);
+  TVector3 v1_SS7(2216.72*mm*TMath::Cos(315. * TMath::DegToRad()), 2216.72*mm*TMath::Sin(315. * TMath::DegToRad()), -166.2*mm);
+  TVector3 v2_SS7(1068.88*mm*TMath::Cos(270. * TMath::DegToRad()), 1068.88*mm*TMath::Sin(270. * TMath::DegToRad()), kZs+11.967*cm);
+  TVector3 v3_SS7 = v2_SS7 - v1_SS7;
+  TVector3 v4_SS7 = 0.5 * v3_SS7;
+
+  double theta_SS7 = v4_SS7.Theta()*TMath::RadToDeg();
+  double phi_SS7 = v4_SS7.Phi()*TMath::RadToDeg();
   
-  
+  TVector3 v1_SS8(2216.72*mm*TMath::Cos(315. * TMath::DegToRad()), 2216.72*mm*TMath::Sin(315. * TMath::DegToRad()), -166.2*mm);
+  TVector3 v2_SS8(1068.88*mm*TMath::Cos(0. * TMath::DegToRad()), 1068.88*mm*TMath::Sin(0. * TMath::DegToRad()), kZs+11.967*cm);
+  TVector3 v3_SS8 = v2_SS8 - v1_SS8;
+  TVector3 v4_SS8 = 0.5 * v3_SS8;
+
+  double theta_SS8 = v4_SS8.Theta()*TMath::RadToDeg();
+  double phi_SS8 = v4_SS8.Phi()*TMath::RadToDeg();
+
   //TGeoTorus* secondarySupport = new TGeoTorus(fF/fQ,0,70.*mm,0,360);
   //TGeoBBox * secondarySupport = new TGeoBBox("secondarySupport", 35.*mm, 35.*mm, v4_SS1.Mag());
   TGeoTube* secondarySupport = new TGeoTube("secondarySupport", 0., 35.*mm, v4_SS1.Mag());
   AObscuration* secondarySupportObs = new AObscuration("secondarySupportObs", secondarySupport);
   secondarySupportObs->RegisterYourself();  
 
+  std::cout << "SS1 = theta: " << theta_SS1 << "; " << theta_SS2 << "; " << theta_SS3 << "; " << theta_SS4 << " ; " << theta_SS5 << "; " << theta_SS6 << "; " << theta_SS6 << " ; " << theta_SS8 << "; phi: " << phi_SS1 << "; " << phi_SS2 << "; " << phi_SS3 << "; " << phi_SS4 <<  " ; " << phi_SS5 << " ; "  << phi_SS6 << "; " << phi_SS7 << "; " << phi_SS8 << " ; mag: " <<  v4_SS1.Mag() << "; " << v4_SS2.Mag() << std::endl;
+  
+  //---------------------------------------
+  // Define mast bars
+  //---------------------------------------
 
+  TVector3 vBarOne_1((1068.88*mm + 235.88*mm)*TMath::Cos(phi_SS2 * TMath::DegToRad()), (1068.88*mm+235.88*mm)*TMath::Sin(phi_SS2 * TMath::DegToRad()), kZs+11.967*cm-55.16872*cm);
+  TVector3 vBarOne_2((1068.88*mm+570.05*mm)*TMath::Cos(phi_SS6 * TMath::DegToRad()), (1068.88*mm+570.05*mm)*TMath::Sin(phi_SS6 * TMath::DegToRad()), kZs+11.967*cm-133.32442*cm);
+  TVector3 vBarOne_3 = vBarOne_2 - vBarOne_1;
+  TVector3 vBarOne_4 = 0.5 * vBarOne_3;
+
+  double theta_BarOne_1 = vBarOne_1.Theta()*TMath::RadToDeg();
+  double phi_BarOne_1 = vBarOne_1.Phi()*TMath::RadToDeg();
+  
+  TGeoTube* secondarySupportBar_1 = new TGeoTube("secondarySupportBar_1", 0., 35.*mm, vBarOne_4.Mag());
+  AObscuration* secondarySupportBarObs_1 = new AObscuration("secondarySupportBarObs_1", secondarySupportBar_1);
+  secondarySupportBarObs_1->RegisterYourself();  
+
+  std::cout << "BarOne_1 = theta: " << theta_BarOne_1 << " phi: " << phi_BarOne_1 << " mag: " << vBarOne_1.Mag() << std::endl;
+  std::cout << "BarOne_3 = x: " << vBarOne_4.X() << " y: " << vBarOne_4.Y() << " z: " << vBarOne_4.Z() << " mag: " << vBarOne_4.Mag() << " ; " << vBarOne_4.Mag2() << std::endl;
+  
+  //-------------------------------
+  //  Add geometry objects to model
+  //-------------------------------
+  
   cameraSupportFrameObs->SetLineColor(45);
   cameraSupportFrameObs2->SetLineColor(45);
+  cameraSupportFrameObs3->SetLineColor(45);
+  cameraSupportBarObs_1->SetLineColor(45);
+  cameraSupportBarObs_2->SetLineColor(45);
   primarySupportFrameObs->SetLineColor(45);
   secondarySupportObs->SetLineColor(45);
-
-  // fManager->GetTopVolume()->AddNodeOverlap(cameraSupportFrameObs, 1, new TGeoCombiTrans(TGeoTranslation(0, v1.Y()+v4.Y(), v1.Z() + v4.Z()), TGeoRotation("", 0, 180 - theta, 0)));
-
-  for(int i=0; i<3; i++)
+ 
+  //----------------------------------------
+  //  Add camera support trusses & footings
+  //----------------------------------------
+  
+  for(int i=0; i!=2; i++)
     {
-      double anglePhi=30;
-      double cPhi = TMath::Cos(TMath::DegToRad()*anglePhi);
-      double sPhi = TMath::Sin(TMath::DegToRad()*anglePhi);
-      
-      double anglePhi2=60;
-      double cPhi2 = TMath::Cos(TMath::DegToRad()*anglePhi2);
-      double sPhi2 = TMath::Sin(TMath::DegToRad()*anglePhi2);
-      
-      double anglePhi3=60;
-      double cPhi3 = TMath::Cos(TMath::DegToRad()*anglePhi2);
-      double sPhi3 = TMath::Sin(TMath::DegToRad()*anglePhi2);
-      
-      TGeoRotation rot1("", -60., theta, 0.);
-      //TGeoRotation rot2("", 0, theta, 0);
-      
-      TGeoRotation rot1_PS("", -30, 0, 0);
-      TGeoRotation rot2_PS("", 0, 90, 0);
-      
       switch(i)
 	{
 	case 0:
-	  fManager->GetTopVolume()->AddNodeOverlap(cameraSupportFrameObs, i + 1, new TGeoCombiTrans(TGeoTranslation(0, v1.Y()+v4.Y(), v1.Z() + v4.Z()), TGeoRotation("", 0, -theta, 0)));
-	  fManager->GetTopVolume()->AddNodeOverlap(cameraSupportFrameObs2, i + 1, new TGeoCombiTrans(TGeoTranslation(0, 0. + vFoot3.Y(), vFoot1.Z()), TGeoRotation("", 0, 90., 0)));
-	  fManager->GetTopVolume()->AddNodeOverlap(primarySupportFrameObs, i + 1, new TGeoCombiTrans(TGeoTranslation(0, v4_PS.Y(), v1_PS.Z() + v4_PS.Z()), TGeoRotation("", 0, 90., 0)));
+	  fManager->GetTopVolume()->AddNodeOverlap(cameraSupportFrameObs, i + 1,
+						   new TGeoCombiTrans(TGeoTranslation(v1_CS1.X() + v4_CS1.X(), v1_CS1.Y() + v4_CS1.Y(), v1_CS1.Z() + v4_CS1.Z()),
+								      TGeoRotation("",0,180-theta_CS1, 0)));
+	  fManager->GetTopVolume()->AddNodeOverlap(cameraSupportFrameObs3, i + 1,
+						   new TGeoCombiTrans(TGeoTranslation(v1_Foot1.X() + v4_Foot1.X(), v1_Foot1.Y() + v4_Foot1.Y(), v1_Foot1.Z() + v4_Foot1.Z()),
+								      TGeoRotation("", 0., 90., 0.)));
+	  fManager->GetTopVolume()->AddNodeOverlap(cameraSupportBarObs_1, i + 1,
+						   new TGeoCombiTrans(TGeoTranslation(v1_CS3.X() + v4_CS3.X(), v1_CS3.Y() + v4_CS3.Y(), v1_CS3.Z() + v4_CS3.Z()),
+								      TGeoRotation("",90,theta_CS3, 0)));
+	  
 	  break;
 	case 1:
-	  fManager->GetTopVolume()->AddNodeOverlap(cameraSupportFrameObs, i + 1, new TGeoCombiTrans(TGeoTranslation( 0. - (v1.Y()+v4.Y())*cPhi, 0. - (v1.Y()+v4.Y())*sPhi, v1.Z() + v4.Z()), TGeoRotation("", -60., theta, 0)));
-	  fManager->GetTopVolume()->AddNodeOverlap(cameraSupportFrameObs2, i + 1, new TGeoCombiTrans(TGeoTranslation(0. - vFoot3.Y()*cPhi, 0. - vFoot3.Y()*sPhi, vFoot1.Z()), TGeoRotation("", -60., 90., 0)));
-	  fManager->GetTopVolume()->AddNodeOverlap(primarySupportFrameObs, i + 1, new TGeoCombiTrans(TGeoTranslation(v4_PS.Mag()*sPhi3, v4_PS.Mag()*cPhi3, v1_PS.Z() + v4_PS.Z()), TGeoRotation("", -60., 90., 0)));
-	  break;
-	case 2:
-	  fManager->GetTopVolume()->AddNodeOverlap(cameraSupportFrameObs, i + 1, new TGeoCombiTrans(TGeoTranslation( 0. + (v1.Y()+v4.Y())*cPhi, 0. - (v1.Y()+v4.Y())*sPhi, v1.Z() + v4.Z()), TGeoRotation("", 60., theta, 0)));
-	  fManager->GetTopVolume()->AddNodeOverlap(cameraSupportFrameObs2, i + 1, new TGeoCombiTrans(TGeoTranslation(0. + vFoot3.Y()*cPhi, 0. - vFoot3.Y()*sPhi, vFoot1.Z()), TGeoRotation("", 60., 90., 0)));
-	  fManager->GetTopVolume()->AddNodeOverlap(primarySupportFrameObs, i + 1, new TGeoCombiTrans(TGeoTranslation(0. - v4_PS.Mag()*sPhi3, v4_PS.Mag()*cPhi3, v1_PS.Z() + v4_PS.Z()), TGeoRotation("", 60., 90., 0)));
+	  fManager->GetTopVolume()->AddNodeOverlap(cameraSupportFrameObs2, i + 1,
+	  					   new TGeoCombiTrans(TGeoTranslation(v1_CS2.X() + v4_CS2.X(), v1_CS2.Y() + v4_CS2.Y(), v1_CS2.Z() + v4_CS2.Z()),
+	  							      TGeoRotation("", 0, theta_CS2, 0)));//90-theta_CS2
+	  fManager->GetTopVolume()->AddNodeOverlap(cameraSupportFrameObs3, i + 1,
+						   new TGeoCombiTrans(TGeoTranslation(v1_Foot2.X() + v4_Foot2.X(), v1_Foot2.Y() + v4_Foot2.Y(), v1_Foot2.Z() + v4_Foot2.Z()),
+								      TGeoRotation("", 0., 90., 0.)));
+	  fManager->GetTopVolume()->AddNodeOverlap(cameraSupportBarObs_2, i + 1,
+						   new TGeoCombiTrans(TGeoTranslation(v1_CS4.X() + v4_CS4.X(), v1_CS4.Y() + v4_CS4.Y(), v1_CS4.Z() + v4_CS4.Z()),
+								      TGeoRotation("",-90,theta_CS4, 0)));
 	  break;
 	  }
     }
-  
-  for(int i=0;i<6;i++)
+
+  //----------------------------------------
+  //  Add primary mirror support structure
+  //----------------------------------------
+
+  for(int i=0;i!=4;i++)
     {
       switch(i)
 	{
 	case 0:
-	  fManager->GetTopVolume()->AddNodeOverlap(secondarySupportObs, i + 1, new TGeoCombiTrans(TGeoTranslation(v2_SS1.X() - v4_SS1.X(),v2_SS1.Y() - v4_SS1.Y(),v1_SS1.Z() + v4_SS1.Z()), TGeoRotation("", 90, -theta_SS1, 0)));
+	  fManager->GetTopVolume()->AddNodeOverlap(primarySupportFrameObs, i + 1,
+						   new TGeoCombiTrans(TGeoTranslation(v1_PS1.X() + v4_PS1.X(), v1_PS1.Y() + v4_PS1.Y(), v1_PS1.Z() + v4_PS1.Z()),
+								      TGeoRotation("", phi_PS1 + 90., 90., 0)));
 	  break;
 	case 1:
-	  fManager->GetTopVolume()->AddNodeOverlap(secondarySupportObs, i + 1, new TGeoCombiTrans(TGeoTranslation(v2_SS1.X() + v4_SS1.X(),v2_SS1.Y() - v4_SS1.Y(),v1_SS1.Z() + v4_SS1.Z()), TGeoRotation("", 90, theta_SS1, 0)));
+	  fManager->GetTopVolume()->AddNodeOverlap(primarySupportFrameObs, i + 1,
+						   new TGeoCombiTrans(TGeoTranslation(v1_PS2.X() + v4_PS2.X(), v1_PS2.Y() + v4_PS2.Y(), v1_PS2.Z() + v4_PS2.Z()),
+								      TGeoRotation("", phi_PS2 + 90., 90., 0)));
 	  break;
 	case 2:
-	  fManager->GetTopVolume()->AddNodeOverlap(secondarySupportObs, i + 1, new TGeoCombiTrans(TGeoTranslation(v2_SS2.X() - v4_SS2.X(),v1_SS2.Y() + v4_SS2.Y() ,v1_SS2.Z() + v4_SS2.Z()), TGeoRotation("", 90 + phi_SS2, theta_SS2, 0)));//20.863 //68.6223 //27.2994 phi: 62.2111
+	  fManager->GetTopVolume()->AddNodeOverlap(primarySupportFrameObs, i + 1,
+						   new TGeoCombiTrans(TGeoTranslation(v1_PS3.X() + v4_PS3.X(), v1_PS3.Y() + v4_PS3.Y(), v1_PS3.Z() + v4_PS3.Z()),
+								      TGeoRotation("", phi_PS3 + 90., 90., 0)));
 	  break;
 	case 3:
-	  fManager->GetTopVolume()->AddNodeOverlap(secondarySupportObs, i + 1, new TGeoCombiTrans(TGeoTranslation(-v4_SS2.X(),v1_SS2.Y() + v4_SS2.Y() ,v1_SS2.Z() + v4_SS2.Z()), TGeoRotation("", 90 - phi_SS2 , -theta_SS2, 0)));//27.2994 - 62.2111
+	  fManager->GetTopVolume()->AddNodeOverlap(primarySupportFrameObs, i + 1,
+						   new TGeoCombiTrans(TGeoTranslation(v1_PS4.X() + v4_PS4.X(), v1_PS4.Y() + v4_PS4.Y(), v1_PS4.Z() + v4_PS4.Z()),
+								      TGeoRotation("",phi_PS4 + 90., 90., 0)));
+	  break;
+	}
+    }
+  
+  
+  //-------------------------------
+  //  Add secondary support masts
+  //-------------------------------
+  
+  for(int i=0;i!=8;i++)
+    {
+      switch(i)
+	{
+	case 0:
+	  fManager->GetTopVolume()->AddNodeOverlap(secondarySupportObs, i + 1,
+	   					   new TGeoCombiTrans(TGeoTranslation(v1_SS1.X() + v4_SS1.X(), v1_SS1.Y() + v4_SS1.Y(), v1_SS1.Z() + v4_SS1.Z()),
+	   							      TGeoRotation("", phi_SS1 + 90, theta_SS1, 0)));
+	  //fManager->GetTopVolume()->AddNodeOverlap(secondarySupportBarObs_1, i + 1,
+	  // 					   new TGeoCombiTrans(TGeoTranslation(vBarOne_4.X(), vBarOne_4.Y(), vBarOne_1.Z() + vBarOne_4.Z()),
+	  // 							      TGeoRotation("", 0, 0, 0)));
+	  break;
+	case 1:
+	  fManager->GetTopVolume()->AddNodeOverlap(secondarySupportObs, i + 1,
+						   new TGeoCombiTrans(TGeoTranslation(v1_SS2.X() + v4_SS2.X(), v1_SS2.Y() + v4_SS2.Y(), v1_SS2.Z() + v4_SS2.Z()),
+								      TGeoRotation("", phi_SS2 + 90, theta_SS2, 0)));
+	  break;
+	case 2:
+	  fManager->GetTopVolume()->AddNodeOverlap(secondarySupportObs, i + 1,
+						   new TGeoCombiTrans(TGeoTranslation(v1_SS3.X() + v4_SS3.X(), v1_SS3.Y() + v4_SS3.Y() ,v1_SS3.Z() + v4_SS3.Z()),
+								      TGeoRotation("", phi_SS3 + 90, theta_SS3, 0)));
+	  break;
+	case 3:
+	  fManager->GetTopVolume()->AddNodeOverlap(secondarySupportObs, i + 1,
+						   new TGeoCombiTrans(TGeoTranslation(v1_SS4.X() + v4_SS4.X(), v1_SS4.Y() + v4_SS4.Y() ,v1_SS4.Z() + v4_SS4.Z()),
+								      TGeoRotation("", phi_SS4 + 90 , theta_SS4, 0)));
 	  break;
 	case 4:
-	  fManager->GetTopVolume()->AddNodeOverlap(secondarySupportObs, i + 1, new TGeoCombiTrans(TGeoTranslation(v1_SS3.X() + v4_SS3.X(), v1_SS3.Y() + v4_SS3.Y() ,v1_SS3.Z() + v4_SS3.Z()), TGeoRotation("", phi_SS3 + 90, theta_SS3, 0)));
+	  fManager->GetTopVolume()->AddNodeOverlap(secondarySupportObs, i + 1,
+						   new TGeoCombiTrans(TGeoTranslation(v1_SS5.X() + v4_SS5.X(), v1_SS5.Y() + v4_SS5.Y() ,v1_SS5.Z() + v4_SS5.Z()),
+								      TGeoRotation("", phi_SS5 + 90, theta_SS5, 0)));
 	  break;
 	case 5:
-	  fManager->GetTopVolume()->AddNodeOverlap(secondarySupportObs, i + 1, new TGeoCombiTrans(TGeoTranslation(v1_SS4.X() + v4_SS4.X(), v1_SS4.Y() + v4_SS4.Y() ,v1_SS4.Z() + v4_SS4.Z()), TGeoRotation("", phi_SS4 + 90, theta_SS4, 0)));
+	  fManager->GetTopVolume()->AddNodeOverlap(secondarySupportObs, i + 1,
+						   new TGeoCombiTrans(TGeoTranslation(v1_SS6.X() + v4_SS6.X(), v1_SS6.Y() + v4_SS6.Y() ,v1_SS6.Z() + v4_SS6.Z()),
+								      TGeoRotation("", phi_SS6 + 90, theta_SS6, 0)));
+	  break;
+	  case 6:
+	  fManager->GetTopVolume()->AddNodeOverlap(secondarySupportObs, i + 1,
+						   new TGeoCombiTrans(TGeoTranslation(v1_SS7.X() + v4_SS7.X(), v1_SS7.Y() + v4_SS7.Y() ,v1_SS7.Z() + v4_SS7.Z()),
+								      TGeoRotation("", phi_SS7 + 90, theta_SS7, 0)));
+	  break;
+	  case 7:
+	  fManager->GetTopVolume()->AddNodeOverlap(secondarySupportObs, i + 1,
+						   new TGeoCombiTrans(TGeoTranslation(v1_SS8.X() + v4_SS8.X(), v1_SS8.Y() + v4_SS8.Y() ,v1_SS8.Z() + v4_SS8.Z()),
+								      TGeoRotation("", phi_SS8 + 90, theta_SS8, 0)));
 	  break;
 	}
     }

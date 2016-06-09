@@ -1,22 +1,8 @@
-// Copyright 2015 Cameron Rulten
-
-//    Licensed under the Apache License, Version 2.0 (the "License");
-//    you may not use this file except in compliance with the License.
-//    You may obtain a copy of the License at
-
-//        http://www.apache.org/licenses/LICENSE-2.0
-
-//    Unless required by applicable law or agreed to in writing, software
-//    distributed under the License is distributed on an "AS IS" BASIS,
-//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//    See the License for the specific language governing permissions and
-//    limitations under the License.
-
-
-// Generic SST-GATE test performance progamme.
+//Generic SST-GATE test performance progamme.
 // Needs to be changed depending on specific requirements
 // To run: ./sst_gate_test 2.0 test_24022014 square 0.0 0.0
 
+//STL includes
 #include <iostream>
 #include <string>
 #include <cmath>
@@ -26,6 +12,7 @@
 #include <iterator>
 #include <sstream>
 
+//ROOT includes
 #include "TH1.h"
 #include "TH2.h"
 #include "TH2D.h"
@@ -42,6 +29,7 @@
 #include "TColor.h"
 #include "TNtuple.h"
 
+//ROOT Geometry includes
 #include "TGeoBBox.h"
 #include "TGeoMatrix.h"
 #include "TGeoShape.h"
@@ -55,6 +43,7 @@
 #include "TGeoTrd1.h"
 #include "TGeoXtru.h"
 
+//ROBAST includes
 #include "AOpticsManager.h"
 #include "AOpticalComponent.h"
 #include "AGeoAsphericDisk.h"
@@ -67,6 +56,7 @@
 #include "ABorderSurfaceCondition.h"
 #include "AGlassCatalog.h"
 
+//SST-GATE includes
 #include "sst_gate_class.hpp"
 #include "sst_gate_globals.hpp"
 //#include "sst_gate_test_performance_leds.hpp"
@@ -132,8 +122,9 @@ int main(int argc, char** argv)
 
   mySST->AddCameraBody(); //CHEC camera
   mySST->AddCameraLid(start_pos*mm, depth*um); //starting z-position and depth of plane. (must provide unit conversion)
-  mySST->AddTelescopeFrame();
-  //mySST->AddTelescopeFrame_version2();
+  //mySST->AddTelescopeFrame();
+  mySST->AddTelescopeFrame_version2();
+  //mySST->AddIdealGroundFocalPlane();
   //mySST->AddPrimaryMask();
   //mySST->AddPrimaryDesignFrame();
   //mySST->AddPrimaryTDesignFrame();
@@ -143,9 +134,9 @@ int main(int argc, char** argv)
   //test_SST_LEDs->testLEDperformance(*mySST, method, ofileName, false); //set secondary as focal plane
   test_SST->TestPerformance(*mySST, method, ofileName, set_focal_plane); //methods = square or cone
   //test_SSTS->TestShadowing(*mySST, method, ofileName); //methods = square or cone
-  // TCanvas *cGeom = new TCanvas("cGeom","cGeom",800,600);
+  //TCanvas *cGeom = new TCanvas("cGeom","cGeom",800,600);
   //mySST->GetManager()->GetTopVolume()->Draw("ogl");
-
+  //cGeom->Update();
   
   theApp->Run();
   
@@ -157,16 +148,53 @@ int main(int argc, char** argv)
 void colourPalette()
 {
   //example of new colors (greys) and definition of a new palette
-  const int NRGBs = 5;
+  
   const int NCont = 999;
+  //const int NRGBs = 5;
   //double stops[NRGBs] = { 0.0, 0.34, 0.61, 0.84, 1.00 };
   //double red[NRGBs] = {0.00, 0.00, 0.87, 1.0, 0.51 };
   //double green[NRGBs] = {0.00, 0.81, 1.0, 0.20, 0.00 };
   //double blue[NRGBs] = {0.51, 1.0, 0.12, 0.00, 0.00 };
-  double stops[NRGBs] = { 0.00, 0.25, 0.50, 0.75, 1.00 };
-  double red[NRGBs] =   { 0.00, 0.00, 0.87, 1.00, 0.51 };
-  double green[NRGBs] = { 0.00, 0.81, 1.00, 0.20, 0.00 };
-  double blue[NRGBs] =  { 0.51, 1.00, 0.12, 0.00, 0.00 };
+
+  //const int NRGBs = 5;
+  // double stops[NRGBs] = { 0.00, 0.25, 0.50, 0.75, 1.00 };
+  // double red[NRGBs] =   { 0.00, 0.00, 0.87, 1.00, 0.51 };
+  // double green[NRGBs] = { 0.00, 0.81, 1.00, 0.20, 0.00 };
+  // double blue[NRGBs] =  { 0.51, 1.00, 0.12, 0.00, 0.00 };
+  //blue test
+  //const int NRGBs = 11;
+  // double stops[NRGBs] = { 0.00, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 1.00};
+  // double red[NRGBs] =   { 0.12, 0.17, 0.20, 0.24, 0.26, 0.37, 0.48, 0.63, 0.77, 0.91, 1.00};
+  // double green[NRGBs] = { 0.15, 0.22, 0.25, 0.29, 0.33, 0.42, 0.53, 0.66, 0.79, 0.92, 1.00};
+  // double blue[NRGBs] =  { 0.48, 0.56, 0.60, 0.65, 0.69, 0.73, 0.78, 0.84, 0.91, 0.96, 1.00};
+
+  //blue -> light grey -> white
+  // const int NRGBs = 5;
+  // double stops[NRGBs] = { 0.10, 0.30, 0.50, 0.70, 0.90 };
+  // double red[NRGBs] =   { 0.08, 0.13, 0.61, 0.82, 1.00 };
+  // double green[NRGBs] = { 0.43, 0.57, 0.72, 0.82, 1.00 };
+  // double blue[NRGBs] =  { 0.97, 0.97, 0.85, 0.82, 1.00 };
+
+  // purples->blue->yellow
+  // const int NRGBs = 5;
+  // double stops[NRGBs] = { 0.00, 0.20, 0.50, 0.80, 1.00 };
+  // double red[NRGBs] =   { 0.34, 0.44, 0.11, 0.98, 0.99 };
+  // double green[NRGBs] = { 0.04, 0.22, 0.42, 0.94, 0.98 };
+  // double blue[NRGBs] =  { 0.51, 0.66, 0.97, 0.00, 0.77 };
+
+  // const int NRGBs = 5;
+  // double stops[NRGBs] = { 0.00, 0.20, 0.50, 0.80, 1.00 };
+  // double red[NRGBs] =   { 0.00, 0.08, 1.00, 1.00, 1.00 };
+  // double green[NRGBs] = { 0.03, 0.28, 0.83, 0.92, 0.98 };
+  // double blue[NRGBs] =  { 0.67, 0.91, 0.35, 0.49, 0.89 };
+
+  //volcanic - brown->red->orange->yellow->white //possibly the best
+  const int NRGBs = 6;
+  double stops[NRGBs] = { 0.00, 0.20, 0.40, 0.60, 0.80, 1.00 };
+  double red[NRGBs] =   { 0.19, 0.58, 0.94, 0.96, 0.97, 1.00 };
+  double green[NRGBs] = { 0.02, 0.05, 0.40, 0.73, 0.94, 1.00 };
+  double blue[NRGBs] =  { 0.00, 0.07, 0.15, 0.12, 0.01, 1.00 };
+  
   TColor::CreateGradientColorTable(NRGBs, stops, red, green, blue, NCont);
   gStyle->SetNumberContours(NCont);
 }

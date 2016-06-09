@@ -1,22 +1,7 @@
-// Copyright 2015 Cameron Rulten
-
-//    Licensed under the Apache License, Version 2.0 (the "License");
-//    you may not use this file except in compliance with the License.
-//    You may obtain a copy of the License at
-
-//        http://www.apache.org/licenses/LICENSE-2.0
-
-//    Unless required by applicable law or agreed to in writing, software
-//    distributed under the License is distributed on an "AS IS" BASIS,
-//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//    See the License for the specific language governing permissions and
-//    limitations under the License.
-
-// Software to test the optical performance of the SST-GATE telescope
-// This code handles the ray tracing and calculates various performance
-// metrics such as effective area and point spread function etc.
-// Written by Cameron Rulten 2013/14 Observatoire de Paris, France.
-
+/*
+The following code includes a set of functions for producing pretty plots
+Written by Cameron Rulten 2013 Observatoire de Paris, France.
+ */
 #ifndef SST_GATE_TEST_PERFORMANCE_H
 #define SST_GATE_TEST_PERFORMANCE_H
 
@@ -59,6 +44,7 @@
 #include "TObject.h"
 #include "TPolyLine3D.h"
 #include "TGaxis.h"
+#include "TArc.h"
 
 #include "sst_gate_globals.hpp"
 #include "sst_gate_class.hpp"
@@ -67,6 +53,10 @@
 #include "sst_gate_plotter.hpp"
 
 using namespace std;
+
+double calculateRMS(vector<double> &vTimes);
+double calculateMEAN(vector<double> &vTimes);
+
 
 class SST_GATE_PERFORMANCE{
 public:
@@ -92,8 +82,8 @@ void SST_GATE_PERFORMANCE::TestPerformance(const SST_GATE& gate, string method, 
 {
   const int kN = 10;         // 0 to 4.5 [deg]
   //const double kDegStep = 0.5;
-  double kDegStep = 0.5;//1.0
-  double fDegStep = 0.4; //step for final angle. This is the analysis limit angle. //0.4 for analyses to 4.4deg and 0.5 for 4.5deg
+  double kDegStep = 0.5; //0.5
+  double fDegStep = 0.4; //step for final angle. This is the analysis limit angle. 
   TH2D* histSpot[kN];
   TH1D* histTime[kN];
   TProfile* hTime_xFP[kN];         // photon position in x direction and mean time taken from secondary mirror
@@ -117,6 +107,7 @@ void SST_GATE_PERFORMANCE::TestPerformance(const SST_GATE& gate, string method, 
   TH2D* spotH_cm[kN];
   TH2D* spotH_deg[kN];
   TH2D* spotH_arcmin[kN];
+  TH2D* spotGround_cm[kN];
   vector<TH2D*> spot_array;
   vector<double> x_array;
   vector<double> y_array;
@@ -154,7 +145,7 @@ void SST_GATE_PERFORMANCE::TestPerformance(const SST_GATE& gate, string method, 
   double area_array[kN];
   double totalRaysNumber;
 
-  TH2D* spot_progression_cm = new TH2D("spot_progression_cm","Spot progression on-axis (0 degrees) to off-axis (4.5 degrees);X (cm);Y (cm)",1000,-1.,1.5*gate.fRf,1000,-1.,1.); //full camera
+  TH2D* spot_progression_cm = new TH2D("spot_progression_cm","Spot progression on-axis (0 degrees) to off-axis (4.5 degrees);X (cm);Y (cm);Number of photons",1000,-1.,1.04*gate.fRf,1000,-1.,1.); //full camera
   // // spot_progression_cm->SetMinimum(1.0);
   // for(int i=1;i<=1000;i++)
   //    {
@@ -274,11 +265,20 @@ void SST_GATE_PERFORMANCE::TestPerformance(const SST_GATE& gate, string method, 
       	obj = 0;
       } // if
       
-      //spotH_cm[i] = new TH2D(Form("spot_cm_%d", i),Form("#it{#theta} = %.1f (deg);X (cm);Y (cm)", theta),1000,-1.11*gate.fRf,1.11*gate.fRf,1000,-1.11*gate.fRf,1.11*gate.fRf); //full camera
-      spotH_cm[i] = new TH2D(Form("spot_cm_%d", i),Form("#it{#theta} = %.1f (degrees);X (cm);Y (cm)",theta),1000,-0.65,0.65,1000,-0.65,0.65);//spot centre 0,0 
-      //spotH_cm[i] = new TH2D(Form("spot_cm_%d", i),Form("#it{#theta} = %.1f (degrees);X (cm);Y (cm)", theta),2000,-0.3,2.1,2000,-0.3,2.1);//spot centre 0,0 5deg phi, pixels    
+      spotH_cm[i] = new TH2D(Form("spot_cm_%d", i),Form("#it{#theta} = %.1f (degrees);X (cm);Y (cm)", theta),1000,-1.11*gate.fRf,1.11*gate.fRf,1000,-1.11*gate.fRf,1.11*gate.fRf); //full camera
+			//spotH_cm[i] = new TH2D(Form("spot_cm_%d", i),Form("#it{#theta} = %.1f (degrees);X (cm);Y (cm)",theta),1000,-0.65,0.65,1000,-0.65,0.65);//spot centre 0,0
+      //spotH_cm[i] = new TH2D(Form("spot_cm_%d", i),Form("#it{#theta} = %.1f (degrees);X (cm);Y (cm)", theta),2000,-0.3,2.1,2000,-0.3,2.1);//spot centre 0,0 5deg phi, pixels
       //spotH_cm[i] = new TH2D(Form("spot_cm_%d", i),Form("#it{#theta} = %.1f (deg);X (cm);Y (cm)", theta),1000,-2.5,2.5,1000,-2.5,2.5);//MAPMT    
       std::cout << "before spot: " << i << " title: " << spotH_cm[i]->GetTitle() << std::endl;
+
+      obj = gROOT->Get(Form("spotGround_cm_%d", i)); 
+      if(obj){
+      	delete obj;
+      	obj = 0;
+      } // if
+      
+      spotGround_cm[i] = new TH2D(Form("spotGround_cm_%d", i),Form("#it{#theta} = %.1f (degrees);X (cm);Y (cm)",theta),1000,-300.,300.,1000,-300.,300.);//spot centre 0,0 
+
       
 
       obj = gROOT->Get(Form("histTime%d", i));
@@ -419,7 +419,7 @@ void SST_GATE_PERFORMANCE::TestPerformance(const SST_GATE& gate, string method, 
 	  TGeoTranslation raytr("raytr", -showerAlt*km*TMath::Sin(theta*TMath::DegToRad()), 0, showerAlt*km*TMath::Cos(theta*TMath::DegToRad()));
 	  //cout << " km: " << 10*km << endl;
 	  TGeoRotation rotShoot("rotShoot", 90, 180 - theta, 0);
-	  array = ARayShooter::RandomCone(lambda, scatAreaInc*gate.fRpMax, showerAlt*km, 1.52053e5, &rotShoot, &raytr);    
+	  array = ARayShooter::RandomCone(lambda, 1.1*gate.fRpMax, showerAlt*km, 1.52053e5, &rotShoot, &raytr);    
 	}
       else
 	{
@@ -457,7 +457,7 @@ void SST_GATE_PERFORMANCE::TestPerformance(const SST_GATE& gate, string method, 
 
       N_focused_array[i] = focused->GetLast();
       if(method=="square") area_array[i] = (scatAreaInc*gate.fRpMax*1.e-2) * (scatAreaInc*gate.fRpMax*1.e-2); //convert from cm to m by multiplying by 10^-2
-      else if(method=="cone") area_array[i] = TMath::Cos(theta*TMath::DegToRad())*TMath::Pi()*TMath::Power( (scatAreaInc*gate.fRpMax*1.e-2) ,2);//convert from cm to m by multiplying by 10^-2
+      else if(method=="cone") area_array[i] = TMath::Cos(theta*TMath::DegToRad())*TMath::Pi()*TMath::Power( (1.1*gate.fRpMax*1.e-2) ,2);//convert from cm to m by multiplying by 10^-2 //
 
       for(int j=0; j<=focused->GetLast(); j++)
 	{
@@ -470,8 +470,8 @@ void SST_GATE_PERFORMANCE::TestPerformance(const SST_GATE& gate, string method, 
 	  //if(method=="square") Aeff += scatAreaInc*gate.fRpMax*scatAreaInc*gate.fRpMax/400./400./m/m;
 	  if(method=="square") Aeff += scatAreaInc*gate.fRpMax*scatAreaInc*gate.fRpMax/160000./m/m; //totalRaysNumber;
 	  if(method=="square") Aeff2 += scatAreaInc*gate.fRpMax*scatAreaInc*gate.fRpMax/totalRaysNumber/m/m; //totalRaysNumber;
-	  else if(method=="cone") Aeff += TMath::Cos(theta*TMath::DegToRad())*TMath::Pi()*TMath::Power(scatAreaInc*gate.fRpMax,2)/1.52053e5/m/m;
-	  //N_focused++;
+	  else if(method=="cone") Aeff2 += TMath::Cos(theta*TMath::DegToRad())*TMath::Pi()*TMath::Power(1.1*gate.fRpMax,2)/1.52053e5/m/m;
+	  //N_focused++;TMath::Cos(theta*TMath::DegToRad())*
 
 	  double *p;
 	  if(method=="square")
@@ -648,6 +648,7 @@ void SST_GATE_PERFORMANCE::TestPerformance(const SST_GATE& gate, string method, 
 	  spotH_deg[i]->Fill(p[0]/gate.deg2dist,p[1]/gate.deg2dist);
 	  spotH_arcmin[i]->Fill(p[0]/gate.deg2dist*60.0,p[1]/gate.deg2dist*60.0);
 	  spot_progression_cm->Fill(p[0],p[1]);
+	  spotGround_cm[i]->Fill(p[0],p[1]);
 	  if(i==7)
 	    {
 	      test_spot->Fill(p[0],p[1]);
@@ -690,8 +691,9 @@ void SST_GATE_PERFORMANCE::TestPerformance(const SST_GATE& gate, string method, 
 
       delay_mean_fov[i] = TMath::Mean(focused->GetLast(), &dta[0], 0);
       delay_meanErr_fov[i] =TMath::RMS(dta.begin(), dta.end());// TMath::RMS(focused->GetLast(), &dta[0]); //
-
-      //cout << "mean: " << TMath::Mean(focused->GetLast(), &dta[0]) << " rms: " << TMath::RMS(dta.begin(), dta.end()) << " rms2: " << TMath::RMS(focused->GetLast(), &dta[0]) << endl;
+      //delay_meanErr_fov[i] = calculateRMS(dta);
+      
+      cout << " TIME mean: " << TMath::Mean(focused->GetLast(), &dta[0]) << " rms: " << TMath::RMS(dta.begin(), dta.end()) << " rms2: " << TMath::RMS(focused->GetLast(), &dta[0]) << " rms3: " << calculateRMS(dta) << " mean2: " << calculateMEAN(dta) << endl;
 
       delay_x.clear();
       delay_y.clear();
@@ -749,8 +751,6 @@ void SST_GATE_PERFORMANCE::TestPerformance(const SST_GATE& gate, string method, 
   std::vector< std::vector<double> > y_coord_all_centred;
   std::vector<double> x_coord_centred;
   std::vector<double> y_coord_centred;
-  double x_coord_mean[10];
-  double y_coord_mean[10];
 
   //The next 2 lines are just a test of the function in the PSF class which produces the same
   //mean and psf results derived below. This is safe to use for PSF comparisons of sim_telarray data.
@@ -776,10 +776,6 @@ void SST_GATE_PERFORMANCE::TestPerformance(const SST_GATE& gate, string method, 
       double sumY = std::accumulate((*y_array_all_iter).begin(),(*y_array_all_iter).end(),0.0);
       double meanY = sumY / (*y_array_all_iter).size(); 
 
-      x_coord_mean[countV] = meanX;
-      y_coord_mean[countV] = meanY;
-
-      
       vector<double>::iterator x_coord_array_iter;
       vector<double>::iterator y_coord_array_iter = (*y_array_all_iter).begin();
       for( x_coord_array_iter=(*x_array_all_iter).begin(); x_coord_array_iter!=(*x_array_all_iter).end(); ++x_coord_array_iter)
@@ -798,7 +794,7 @@ void SST_GATE_PERFORMANCE::TestPerformance(const SST_GATE& gate, string method, 
 	  //x_coord_centred.push_back(getX_psc);
 	  //y_coord_centred.push_back(getY);
 
-	  if(countV==9) cout << "num: " << countV << " x: " << getX << " y: " << getY << " x-<x>: " << getX-meanX << " y-<y>: " << getY-meanY << " meanX: " << meanX << " ps: " << (fov_angle[countV]*gate.deg2dist) << " x-check: " << x_check[countV] << " getX-ps: " << getX-(fov_angle[countV]*gate.deg2dist) << " fov: " << fov_angle[countV] << endl;
+	  //if(countV==9) cout << "num: " << countV << " x: " << getX << " y: " << getY << " x-<x>: " << getX-meanX << " y-<y>: " << getY-meanY << " meanX: " << meanX << " ps: " << (fov_angle[countV]*gate.deg2dist) << " x-check: " << x_check[countV] << " getX-ps: " << getX-(fov_angle[countV]*gate.deg2dist) << " fov: " << fov_angle[countV] << endl;
 	  y_coord_array_iter++;
 	}
 
@@ -814,14 +810,14 @@ void SST_GATE_PERFORMANCE::TestPerformance(const SST_GATE& gate, string method, 
   
   cout << " x-all-centred-size: " << x_coord_all_centred.size() << " y-all-centred-size: " << y_coord_all_centred.size() << endl;
   
-  // for(int i=0;i!=kN;++i)
-  //   {
-  //     cout << "fov: " << fov_angle[i] << " mean delay: " << delay_mean_fov[i] << " spread: " << delay_meanErr_fov[i] << " min: " << mints[i] << " max: " << maxts[i] << " maxdiff: " << maxts[i]-mints[i] << endl;
+  for(int i=0;i!=kN;++i)
+    {
+      cout << "fov: " << fov_angle[i] << " mean delay: " << delay_mean_fov[i] << " spread: " << delay_meanErr_fov[i] << " min: " << mints[i] << " max: " << maxts[i] << " maxdiff: " << maxts[i]-mints[i] << endl;
 
-  //     cout << "Total Rays: Field Angle: " << endl;
-  //     cout << totalRays[i] << " " << fov_angle[i] << endl;
+      cout << "Total Rays: Field Angle: " << endl;
+      cout << totalRays[i] << " " << fov_angle[i] << endl;
 
-  //   }
+    }
   
   //----------------------------------------------------------------------------------------------
   // Check that the vectors are filled with the correct values.
@@ -847,6 +843,7 @@ void SST_GATE_PERFORMANCE::TestPerformance(const SST_GATE& gate, string method, 
   // Calculate PSF using centred spots
   //----------------------------------------------------------------------------------------------
 
+  
   SST_GATE_PSF* getPSF = new SST_GATE_PSF();
 
   bool derive_psf=true;
@@ -891,9 +888,7 @@ void SST_GATE_PERFORMANCE::TestPerformance(const SST_GATE& gate, string method, 
       //---------------------------------------------------------------------------------------
       // New plotting methods
       //---------------------------------------------------------------------------------------
-
-      //Region between started lines commented out on 15th April 2015 before publication on GitHUB.
-      //********************************************************************************************************
+      
       // //-----Plot centred spots-----
       // TCanvas* spot_canvas33 = new TCanvas("spot_canvas33", "spot_canvas33", 1440, 500);
       // // gStyle->SetOptStat(0);
@@ -960,9 +955,8 @@ void SST_GATE_PERFORMANCE::TestPerformance(const SST_GATE& gate, string method, 
       
       // spot_canvas33->Modified();
       // spot_canvas33->Update();
-      //********************************************************************************************************
-
       
+
       //additional plots
       double xD[kN], yD[kN];
       TEllipse* psfEllipse[kN];
@@ -977,131 +971,154 @@ void SST_GATE_PERFORMANCE::TestPerformance(const SST_GATE& gate, string method, 
 
       create_psf_ellipse(psfEllipse, spotH_cm, kN, psf_encircled_cm);//psf_radii
       create_pixel_box(pixelBox, spotH_cm, kN, 3.0);
-      plot_spot(spotH_cm, pixelBox, psfEllipse, kN, psf_encircled_cm, method, ofile_name, xD, yD, psf_encircled_photons, psf_encircled_cm, effectiveArea, angularResSagittal, angularResTangential, gate.fRpMax, kDegStep, fDegStep);//psf_radii
-      
+      //plot_spot(spotH_cm, pixelBox, psfEllipse, kN, psf_encircled_cm, method, ofile_name, xD, yD, psf_encircled_photons, psf_encircled_cm, effectiveArea, angularResSagittal, angularResTangential, gate.fRpMax, kDegStep, fDegStep);//psf_radii
 
+      
+      
       //spot progression plot
-      //TCanvas* spot_prog = new TCanvas("spot_prog", "spot_prog", 1500, 250);
-      //gPad->SetLogz();
-      //spot_progression_cm->Draw("colz");
+			TH2D* cameraFrame = new TH2D("cameraFrame","Spot progression on-axis (0 degrees) to off-axis (4.5 degrees);X (cm);Y (cm)",1000,-1.,1.04*gate.fRf,1000,-1.,1.); //full camera
+			TArc *cameraEdge = new TArc(0.0,0.0,gate.fRf,0.0, 6.0);
+      TCanvas* spot_prog = new TCanvas("spot_prog", "spot_prog", 1500, 300);
+      gPad->SetLogz();
+			//spot_prog->SetMargin(0.15, 0.85, 0.15, 0.85);
+			spot_prog->SetRightMargin(0.15);
+			spot_progression_cm->SetStats(0);
+			spot_progression_cm->GetZaxis()->SetTitle("number of photons");
+			spot_progression_cm->SetTitleSize(0.08);
+			spot_progression_cm->GetXaxis()->SetTitleOffset(0.7);
+			spot_progression_cm->GetYaxis()->SetTitleOffset(0.7);
+			spot_progression_cm->GetZaxis()->SetTitleOffset(0.4);
+			spot_progression_cm->GetXaxis()->SetTitleSize(0.07);
+			spot_progression_cm->GetYaxis()->SetTitleSize(0.07);
+			spot_progression_cm->GetZaxis()->SetTitleSize(0.07);
+			spot_progression_cm->GetXaxis()->SetLabelSize(0.05);
+			spot_progression_cm->GetYaxis()->SetLabelSize(0.05);
+			spot_progression_cm->GetZaxis()->SetLabelSize(0.05);
+			//spot_progression_cm->GetZaxis()->SetLabelOffset(0);
+			
+			spot_progression_cm->Draw("colz");
+			//spot_progression_cm->SetStats(kFALSE);
+			//spot_progression_cm->Draw("colz");
+			cameraEdge->SetLineColor(3);
+			cameraEdge->SetFillColor(0);
+			cameraEdge->SetFillStyle(0);
+			cameraEdge->SetTheta(357.0);
+			cameraEdge->Draw("same");
+			//spot_progression_cm->Draw("same");
+			spot_prog->Update();
+			string canvas_name = method + "_spot_progression_" + ofile_name + ".png";
+			spot_prog->SaveAs(canvas_name.c_str());
       
     }//end of psf section
 
 
-      //spot ON vs OFF plot
-      TPaveStats* spot_stat;
-      TPaveStats* spot_stat2;
+
+  //plot_spot_ground(spotGround_cm, kN, method, ofile_name, kDegStep, fDegStep);
+  //void plot_spot_ground(TH2D* spotGround_cm[], int tN, std::string method, std::string ofile_name, double kDegStep, double fDegStep);
+
+
   
-      TH2D* spotH_cm_clone[kN];
-      stringstream clone_num;
-      string clone_name;
-      
-      for(int i=0;i<kN;i++)
-	{
-	  clone_num << i+1;
-	  clone_name = "spotH_cm_clone_" + clone_num.str();
-	  spotH_cm_clone[i] = (TH2D*)spotH_cm[i]->Clone(clone_name.c_str());
-	  clone_num.str("");
-	}
+  //----- PLOT Spot ON vs OFF and Effective area --------------------------------------
 
-      //      double mean_lastFA = spotH_cm_clone[kN-1]->GetMean(1);
-      
-      cout << " FOV ellipse details: " << spotH_cm_clone[kN-1]->GetMean(1) << " " << spotH_cm_clone[kN-1]->GetBinContent(spotH_cm_clone[kN-1]->GetMaximumBin()) << " " << spotX_cm[kN-1]->GetBinContent(spotX_cm[kN-1]->GetMaximumBin()) << " " << spotX_cm[kN-1]->GetMean(1) << " " << spotX_cm[kN-1]->GetMaximumStored() << " " << fDegStep << endl;
-      TEllipse* fovEllipse = new TEllipse(-17.6977,0.0,18.1,18.1,-2.05935639351399,2.05935639351399);//(0.0,0.0,0.4,2.0,-0.2);// -17.6977,0.0,17.6977, 0.0, 2.0,-0.2);//,180);
-      //For a mean centred spot
-      if(fDegStep==0.4)fovEllipse->SetX1(-(x_coord_mean[kN-1])); //-17.6977
-      if(fDegStep==0.5)fovEllipse->SetX1(-(x_coord_mean[kN-1])); //-18.1
-      //For platescale centred spot //UNTESTED!!!
-      //if(fDegStep==0.4)fovEllipse->SetX1(-(spotX_cm[kN-1]->GetMean(1)));
-      //if(fDegStep==0.5)fovEllipse->SetX1(-(spotX_cm[kN-1]->GetMean(1)));
-      
-      fovEllipse->SetLineStyle(2);
-      fovEllipse->SetLineColor(3);
-      fovEllipse->SetLineWidth(2);
-      fovEllipse->SetFillStyle(0);
-      
-      TCanvas* spot_on_v_off = new TCanvas("spot_on_v_off", "spot_on_v_off", 1200, 600);
-      //gStyle->SetOptStat(0);
-      gStyle->SetTitleFontSize(0.04);
-      spot_on_v_off->Divide(2,1);
-      TPad *pads[2];
 
-      for(int i=0;i!=2;++i)
-	{
-	  pads[i] = (TPad*)spot_on_v_off->GetPad(i+1);
-	}
-      
-      for(int i=0;i!=2;++i)
-	{
-	  pads[i]->SetRightMargin(0.15);
-	  pads[i]->Draw();
-	}
-      spot_on_v_off->Update();
-      
-      spot_on_v_off->cd(1);
-      pads[0]->SetLogz();
-      //spot_stat = (TPaveStats*)spotH_cm_clone[0]->FindObject("stats_1");
-      //spot_stat->SetOptStat(0);
-      spotH_cm_clone[0]->SetTitle("#theta_{field angle} = 0 (degrees)");
-      spotH_cm_clone[0]->SetAxisRange(-0.65,0.65,"X");
-      spotH_cm_clone[0]->SetAxisRange(-0.65,0.65,"Y");
-      spotH_cm_clone[0]->GetZaxis()->SetRangeUser(1,100);//spotH_cm[0]->GetMaximum());
-      spotH_cm_clone[0]->SetLabelFont(42,"X;Y;Z");
-      spotH_cm_clone[0]->SetLabelSize(0.035,"X;Y;Z");
-      spotH_cm_clone[0]->SetTitleSize(0.04,"X;Y;Z");
-      spotH_cm_clone[0]->SetTitleFont(42,"X;Y;Z");
-      spotH_cm_clone[0]->SetTitleOffset(1.2,"Y");
-      spotH_cm_clone[0]->Draw("colz");
-      spot_on_v_off->cd(2);
+  // //spot ON vs OFF plot
+  //     TPaveStats* spot_stat;
+  //     TPaveStats* spot_stat2;
+  
+  //     TH2D* spotH_cm_clone[kN];
+  //     stringstream clone_num;
+  //     string clone_name;
+  //     for(int i=0;i<kN;i++)
+  // 	{
+  // 	  clone_num << i+1;
+  // 	  clone_name = "spotH_cm_clone_" + clone_num.str();
+  // 	  spotH_cm_clone[i] = (TH2D*)spotH_cm[i]->Clone(clone_name.c_str());
+  // 	  clone_num.str("");
+  // 	}
 
-      pads[1]->SetLogz();
-      //spot_stat2 = (TPaveStats*)spotH_cm_clone[8]->FindObject("stats_9");
-      //spot_stat2->SetOptStat(0);
-      if(fDegStep==0.4) spotH_cm_clone[kN-1]->SetTitle("#theta_{field angle} = 4.4 (degrees)");
-      if(fDegStep==0.5) spotH_cm_clone[kN-1]->SetTitle("#theta_{field angle} = 4.5 (degrees)");
-      spotH_cm_clone[kN-1]->SetAxisRange(-0.65,0.65,"X");
-      spotH_cm_clone[kN-1]->SetAxisRange(-0.65,0.65,"Y");
-      spotH_cm_clone[kN-1]->GetZaxis()->SetRangeUser(1,100);//spotH_cm[kN-1]->GetMaximum());
-      spotH_cm_clone[kN-1]->SetLabelFont(42,"X;Y;Z");
-      spotH_cm_clone[kN-1]->SetLabelSize(0.035,"X;Y;Z");
-      spotH_cm_clone[kN-1]->SetTitleSize(0.04,"X;Y;Z");
-      spotH_cm_clone[kN-1]->SetTitleFont(42,"X;Y;Z");
-      spotH_cm_clone[kN-1]->SetTitleOffset(1.2,"Y");
-      spotH_cm_clone[kN-1]->Draw("colz");
-      fovEllipse->Draw("only same");//only plot the FOV edge if comparing Theta=4.4 degrees.
-      TLegend* legEllipse = new TLegend(0.137681, 0.808972, 0.461678, 0.883766);
-      legEllipse->SetFillStyle(1001);
-      legEllipse->SetFillColor(0);  
-      legEllipse->AddEntry(fovEllipse, "camera edge (FOV limit)" , "l");
-      legEllipse->Draw();
-      spot_on_v_off->Update();
+  //     TEllipse* fovEllipse = new TEllipse(0.0,0.0,0.4,2.0,-0.2);// -17.6977,0.0,17.6977, 0.0, 2.0,-0.2);//,180);
+  //     fovEllipse->SetLineStyle(2);
+  //     fovEllipse->SetLineColor(3);
+  //     fovEllipse->SetLineWidth(2);
+  //     fovEllipse->SetFillStyle(0);
       
-      string output_name = method + "/spot_ON_versus_OFF_" + ofile_name + ".eps";
-      spot_on_v_off->SaveAs(output_name.c_str());
-      output_name = method + "/spot_ON_versus_OFF_" + ofile_name + ".png";
-      spot_on_v_off->SaveAs(output_name.c_str());
+  //     TCanvas* spot_on_v_off = new TCanvas("spot_on_v_off", "spot_on_v_off", 1200, 600);
+  //     gStyle->SetOptStat(0);
+  //     gStyle->SetTitleFontSize(0.04);
+  //     spot_on_v_off->Divide(2,1);
+  //     TPad *pads[2];
 
-      TCanvas* effective_area_plot = new TCanvas("effective_area_plot", "effective_area_plot", 900, 700);
-      gStyle->SetTitleFontSize(0.04);
-      graEffArea->SetMarkerStyle(20);
-      graEffArea->SetMarkerColor(4);
-      graEffArea->SetMarkerSize(1);
-      graEffArea->GetXaxis()->SetLabelFont(42);
-      graEffArea->GetYaxis()->SetLabelFont(42);
-      graEffArea->GetXaxis()->SetLabelSize(0.028);
-      graEffArea->GetYaxis()->SetLabelSize(0.028);
-      graEffArea->GetXaxis()->SetTitleSize(0.03);
-      graEffArea->GetYaxis()->SetTitleSize(0.03);
-      graEffArea->GetXaxis()->SetTitleFont(42);
-      graEffArea->GetYaxis()->SetTitleFont(42);
-      graEffArea->SetMaximum(15.0);
-      graEffArea->SetMinimum(1.0);
-      graEffArea->Draw("APL");
-      output_name = method + "/effective_area_" + ofile_name + ".eps";
-      effective_area_plot->SaveAs(output_name.c_str());
-      output_name = method + "/effective_area_" + ofile_name + ".png";
-      effective_area_plot->SaveAs(output_name.c_str());
+  //     for(int i=0;i!=2;++i)
+  // 	{
+  // 	  pads[i] = (TPad*)spot_on_v_off->GetPad(i+1);
+  // 	}
+      
+  //     for(int i=0;i!=2;++i)
+  // 	{
+  // 	  pads[i]->SetRightMargin(0.15);
+  // 	  pads[i]->Draw();
+  // 	}
+  //     spot_on_v_off->Update();
+      
+  //     spot_on_v_off->cd(1);
+  //     pads[0]->SetLogz();
+  //     //spot_stat = (TPaveStats*)spotH_cm_clone[0]->FindObject("stats_1");
+  //     //spot_stat->SetOptStat(0);
+  //     spotH_cm_clone[0]->SetTitle("#theta_{field angle} = 0 (degrees)");
+  //     spotH_cm_clone[0]->SetAxisRange(-0.5,0.5,"X");
+  //     spotH_cm_clone[0]->SetAxisRange(-0.5,0.5,"Y");
+  //     spotH_cm_clone[0]->GetZaxis()->SetRangeUser(1,100);//spotH_cm[0]->GetMaximum());
+  //     spotH_cm_clone[0]->SetLabelFont(42,"X;Y;Z");
+  //     spotH_cm_clone[0]->SetLabelSize(0.035,"X;Y;Z");
+  //     spotH_cm_clone[0]->SetTitleSize(0.04,"X;Y;Z");
+  //     spotH_cm_clone[0]->SetTitleFont(42,"X;Y;Z");
+  //     spotH_cm_clone[0]->SetTitleOffset(1.2,"Y");
+  //     spotH_cm_clone[0]->Draw("colz");
+  //     spot_on_v_off->cd(2);
 
+  //     pads[1]->SetLogz();
+  //     //spot_stat2 = (TPaveStats*)spotH_cm_clone[8]->FindObject("stats_9");
+  //     //spot_stat2->SetOptStat(0);
+  //     spotH_cm_clone[kN-2]->SetTitle("#theta_{field angle} = 4.4 (degrees)");
+  //     spotH_cm_clone[kN-2]->SetAxisRange(-0.5,0.5,"X");
+  //     spotH_cm_clone[kN-2]->SetAxisRange(-0.5,0.5,"Y");
+  //     spotH_cm_clone[kN-2]->GetZaxis()->SetRangeUser(1,100);//spotH_cm[kN-1]->GetMaximum());
+  //     spotH_cm_clone[kN-2]->SetLabelFont(42,"X;Y;Z");
+  //     spotH_cm_clone[kN-2]->SetLabelSize(0.035,"X;Y;Z");
+  //     spotH_cm_clone[kN-2]->SetTitleSize(0.04,"X;Y;Z");
+  //     spotH_cm_clone[kN-2]->SetTitleFont(42,"X;Y;Z");
+  //     spotH_cm_clone[kN-2]->SetTitleOffset(1.2,"Y");
+  //     spotH_cm_clone[kN-2]->Draw("colz");
+  //     fovEllipse->Draw("only same");
+  //     string output_name = method + "/spot_ON_versus_OFF_" + ofile_name + ".eps";
+  //     spot_on_v_off->SaveAs(output_name.c_str());
+  //     output_name = method + "/spot_ON_versus_OFF_" + ofile_name + ".png";
+  //     spot_on_v_off->SaveAs(output_name.c_str());
+
+  //     TCanvas* effective_area_plot = new TCanvas("effective_area_plot", "effective_area_plot", 900, 700);
+  //     gStyle->SetTitleFontSize(0.04);
+  //     graEffArea->SetMarkerStyle(20);
+  //     graEffArea->SetMarkerColor(4);
+  //     graEffArea->SetMarkerSize(1);
+  //     graEffArea->GetXaxis()->SetLabelFont(42);
+  //     graEffArea->GetYaxis()->SetLabelFont(42);
+  //     graEffArea->GetXaxis()->SetLabelSize(0.028);
+  //     graEffArea->GetYaxis()->SetLabelSize(0.028);
+  //     graEffArea->GetXaxis()->SetTitleSize(0.03);
+  //     graEffArea->GetYaxis()->SetTitleSize(0.03);
+  //     graEffArea->GetXaxis()->SetTitleFont(42);
+  //     graEffArea->GetYaxis()->SetTitleFont(42);
+  //     graEffArea->SetMaximum(15.0);
+  //     graEffArea->SetMinimum(1.0);
+  //     graEffArea->Draw("APL");
+  //     output_name = method + "/effective_area_" + ofile_name + ".eps";
+  //     effective_area_plot->SaveAs(output_name.c_str());
+  //     output_name = method + "/effective_area_" + ofile_name + ".png";
+  //     effective_area_plot->SaveAs(output_name.c_str());
+
+
+  //------- Additional plotting options -----------------------------------------------------------------
+  
 
       // TCanvas* test2 = new TCanvas("test2","test2",800,600);
       // graTime->SetMarkerColor(4);
@@ -1124,22 +1141,56 @@ void SST_GATE_PERFORMANCE::TestPerformance(const SST_GATE& gate, string method, 
   
       cout << "inputs pre: "  << kDegStep << " " << fDegStep << endl;
       switch(set_focal_plane)
-	{
-	case 0: //camera
-	  //a higher quality on-off plot is done above
-	  break;
-	case 1: //primary
-	  plot_on_v_off(hist_xyP, method, ofile_name, 0, 9, 0, kDegStep, fDegStep); //plot ON vs OFF
-	  plot_time_xyP(hTime_xyP, kN, method, ofile_name); //plot all field (theta) angles
-	  //plot_on_v_off(TProfile2D* hist_xy[], std::string method, std::string ofile_name, int on_axis, int off_axis, int mirror_index)
-	  break;
-	case 2: //secondary
-	  plot_on_v_off(hist_xyS, method, ofile_name, 0, 9, 1, kDegStep, fDegStep);//plot ON vs OFF
-	  plot_time_xyS(hTime_xyS, kN, method, ofile_name); //plot all field (theta) angles
-	  break;
-	}
+      	{
+      	case 0: //camera
+      	  //a higher quality on-off plot is done above
+      	  break;
+      	case 1: //primary
+      	  plot_on_v_off(hist_xyP, method, ofile_name, 0, 9, 0, kDegStep, fDegStep); //plot ON vs OFF
+      	  plot_time_xyP(hTime_xyP, kN, method, ofile_name); //plot all field (theta) angles
+      	  //plot_on_v_off(TProfile2D* hist_xy[], std::string method, std::string ofile_name, int on_axis, int off_axis, int mirror_index)
+      	  break;
+      	case 2: //secondary
+      	  plot_on_v_off(hist_xyS, method, ofile_name, 0, 9, 1, kDegStep, fDegStep);//plot ON vs OFF
+      	  //plot_time_xyS(hTime_xyS, kN, method, ofile_name); //plot all field (theta) angles
+      	  break;
+      	}
       
       //plot_effArea_angRes(graEffArea, graSigma,method, ofile_name, leg);
+
+      //append effective data to file for comparison
+
+      ofstream effArea_outfile;
+  effArea_outfile.open("square/effArea_data_file.txt", ios::app);
+  //output effective area values to file for checking
+  for(int i=0; i!=kN; i++)
+    {
+	  effArea_outfile.width(5);
+	  effArea_outfile.precision(1);
+	  effArea_outfile << fov_angle[i] << " ";
+	  effArea_outfile.width(3);
+	  effArea_outfile.precision(1);
+	  effArea_outfile << "0.0" << " "; //phi angle
+	  effArea_outfile.width(10);
+	  effArea_outfile << fixed;
+	  effArea_outfile.precision(5);
+	  effArea_outfile << effectiveArea[i] << " ";
+	  effArea_outfile.width(10);
+	  effArea_outfile << effectiveArea[i] << " ";
+	  //specify whether with or wihout shadowing components
+	  //effArea_outfile << "noComponents" << " ";
+	  effArea_outfile << "withComponents_v2" << " "; //withComponents or withComponents_v2
+	  //specify whether spot analysis or shadowing analysis
+	  effArea_outfile << "spot" << endl;
+	  //effArea_outfile << "shadowing" << endl;
+    }
+  
+  effArea_outfile.close();
+
+
+
+
+
       
       //---------------------------------------------------------------------------------------
 }
@@ -1178,7 +1229,7 @@ void SST_GATE_PERFORMANCE::check_effective_area(double N_focused[], int tN, stri
   effAreaAltMethod->SetLineColor(1);
   //effAreaAltMethod->Draw("sameLP");
   mg1->Add(effAreaAltMethod);
-  mg1->SetMaximum(8.2); //withComponents = 8.2 noComponents = 9.5
+  mg1->SetMaximum(9.5); //withComponents = 8.2 noComponents = 9.5
   mg1->SetMinimum(5.5);  //withComponents = 5.5 noComponents = 7.5
   
   mg1->SetTitle("Effective area (calculation cross-check); #theta_{field angle} (deg.); A_{effective} (m^{2})");
@@ -1198,6 +1249,45 @@ void SST_GATE_PERFORMANCE::check_effective_area(double N_focused[], int tN, stri
   cEffA->SaveAs("effective_area_cross_check.pdf");
   cEffA->SaveAs("effective_area_cross_check.png");
 
+}
+
+double calculateRMS(vector<double> &vTimes)
+{
+
+  const int kN = vTimes.size();
+  double sumMeans;
+  
+  for(auto itTime = vTimes.begin(); itTime != vTimes.end(); ++itTime)
+    {
+      double getVal = (*itTime);
+      sumMeans += (getVal*getVal);
+    }
+
+  double mean;
+  if(kN!=0) mean = (sumMeans/kN);
+  else mean=0.0;
+
+  double RMS = sqrt(mean);
+
+  return RMS;
+}
+
+double calculateMEAN(vector<double> &vTimes)
+{
+
+  const int kN = vTimes.size();
+  double sumMeans;
+  
+  for(auto itTime = vTimes.begin(); itTime != vTimes.end(); ++itTime)
+    {
+      sumMeans += (*itTime);
+    }
+
+  double mean;
+  if(kN!=0) mean = (sumMeans/kN);
+  else mean=0.0;
+
+  return mean;
 }
 
 #endif
