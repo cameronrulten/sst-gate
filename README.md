@@ -20,3 +20,5 @@ The compile script is simple to run from the command line as follows:
 e.g. ./compile sst_gate_test.cpp sst_gate_test
 
 I will construct a Makefile to make things easier... please be patient :)
+
+ZEMAX data files are contained within the zemax_data_files directory. Also included in this directory is an internal technical note on the optical design written by Jürgen Schmoll (University of Durham).
