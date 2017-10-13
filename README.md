@@ -12,11 +12,18 @@ In in order to use this software properly a working copy of the **CERN ROOT** an
 Currently this software has only been tested on the production version ROOT v6.10.06 (see https://root.cern.ch)
 
 In addition, for this software to work a copy of the **ROBAST** software version 2.4.4 must be installed.
-(see http://robast.github.io/)
-The latest ROBAST releases are available from https://github.com/ROBAST/ROBAST/releases/tag/v2.4.4
 
-In addition you need to have **CMake** installed. This was tested with CMake version 3.7.2
-although the minimum version support is version 2.8
+You must define the the ROBAST environment variable so CMake can find your ROBAST installation.
+
+i.e. export ROBAST=path/to/your/ROBAST/installation
+
+For more information about ROBAST please see http://robast.github.io/
+
+The latest ROBAST releases are available from https://github.com/ROBAST/ROBAST/releases
+
+In addition you need to have **CMake** installed.
+This software was tested with CMake version 3.7.2
+The minimum version supported is version 2.8
 
 # Installation:
 
