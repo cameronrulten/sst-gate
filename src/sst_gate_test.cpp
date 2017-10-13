@@ -134,9 +134,9 @@ int main(int argc, char** argv)
   //test_SST_LEDs->testLEDperformance(*mySST, method, ofileName, false); //set secondary as focal plane
   test_SST->TestPerformance(*mySST, method, ofileName, set_focal_plane); //methods = square or cone
   //test_SSTS->TestShadowing(*mySST, method, ofileName); //methods = square or cone
-  //TCanvas *cGeom = new TCanvas("cGeom","cGeom",800,600);
-  //mySST->GetManager()->GetTopVolume()->Draw("ogl");
-  //cGeom->Update();
+  TCanvas *cGeom = new TCanvas("cGeom","cGeom",800,600);
+  mySST->GetManager()->GetTopVolume()->Draw("ogl");
+  cGeom->Update();
   
   theApp->Run();
   
