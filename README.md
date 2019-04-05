@@ -8,7 +8,7 @@ Apple Macbook Pro running macOS Sierra version 10.12.6
 
 # Prerequisites:
 
-In in order to use this software properly a working copy of the **CERN ROOT** analysis framework is required.
+In order to use this software properly a working copy of the **CERN ROOT** analysis framework is required.
 Currently this software has only been tested on the production version ROOT v6.10.06 (see https://root.cern.ch)
 
 In addition, for this software to work a copy of the **ROBAST** software version 2.4.4 must be installed.
